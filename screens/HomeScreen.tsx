@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Screen, Tournament, Player, Location } from '../types';
 import { renderGlobalAvatar } from './ProfileScreen';
 
@@ -40,6 +40,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [duration, setDuration] = useState(2);
   const [locationId, setLocationId] = useState('');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  
+  // State para o countdown
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+
+  useEffect(() => {
+    if (!activeTournament) return;
+    
+    const calculateTimeLeft = () => {
+        const start = new Date(`${activeTournament.date}T${activeTournament.time}`);
+        const now = new Date();
+        const diff = start.getTime() - now.getTime();
+
+        if (diff <= 0) {
+             if (diff > -1000 * 60 * 60 * activeTournament.duration) return 'A DECORRER';
+             return 'TERMINADO';
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+        if (days > 0) return `Faltam ${days}d ${hours}h`;
+        if (hours > 0) return `Faltam ${hours}h ${minutes}m`;
+        return `Faltam ${minutes}m`;
+    };
+
+    setTimeRemaining(calculateTimeLeft());
+    const timer = setInterval(() => setTimeRemaining(calculateTimeLeft()), 60000); // Atualiza a cada minuto
+    return () => clearInterval(timer);
+  }, [activeTournament]);
   
   const totalGames = history.reduce((acc, t) => acc + (t.matches?.length || 0), 0);
   const totalHours = history.reduce((acc, t) => acc + t.duration, 0);
@@ -219,7 +249,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }
 
   if (activeTournament) {
-    const locName = getLocationName(activeTournament.locationId);
+    const loc = locations.find(l => l.id === activeTournament.locationId);
+    const locName = loc?.name || 'Local Desconhecido';
     const confirmedCount = activeTournament.confirmedPlayerIds.length;
     const confirmedPlayers = activeTournament.confirmedPlayerIds.map(id => players.find(p => p.id === id)).filter((p): p is Player => p !== undefined);
 
@@ -354,34 +385,66 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             
             {StatsSection}
             
-            <section className={`relative overflow-hidden rounded-3xl bg-card-dark shadow-xl ring-1 transition-all duration-700 ${isLive ? 'ring-primary shadow-primary/20' : isRosterClosed ? 'ring-emerald-500/50 scale-[1.01]' : 'ring-white/10'}`}>
+            <section className={`relative overflow-hidden rounded-3xl shadow-xl ring-1 transition-all duration-700 min-h-[280px] flex flex-col justify-end group ${isLive ? 'ring-primary shadow-primary/20' : isRosterClosed ? 'ring-emerald-500/50' : 'ring-white/10'}`}>
+                
+                {/* Imagem de Fundo */}
+                {loc?.imageUrl ? (
+                    <>
+                        <img src={loc.imageUrl} className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={locName} />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent"></div>
+                    </>
+                ) : (
+                     <div className="absolute inset-0 bg-card-dark"></div>
+                )}
+                
                 {isLive && <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>}
-                <div className="p-5 relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isLive ? 'bg-primary text-background-dark border-primary' : isRosterClosed ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-white/10 text-gray-400 border-white/20'}`}>
-                                    {isLive ? 'A DECORRER' : isRosterClosed ? 'CONVOCATÓRIA FECHADA' : 'ABERTO A INSCRIÇÕES'}
-                                </span>
+                
+                <div className="p-5 relative z-10 w-full">
+                    {/* Top Right Countdown */}
+                    {!isLive && (
+                        <div className="absolute top-0 right-5 -mt-20 flex flex-col items-end">
+                            <div className="bg-black/50 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                                 <span className="material-symbols-outlined text-primary text-sm animate-pulse">timer</span>
+                                 <span className="text-xs font-black text-white uppercase tracking-wider">{timeRemaining}</span>
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-1">{locName}</h3>
-                            <p className="text-slate-400 text-xs flex items-center gap-1.5">
-                                <span className="material-symbols-outlined text-sm">calendar_today</span>
-                                {new Date(activeTournament.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' })} • {activeTournament.time}
-                            </p>
                         </div>
-                        <div className={`p-2.5 rounded-xl border ${isLive ? 'bg-primary text-background-dark border-primary shadow-lg shadow-primary/30' : isRosterClosed ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-white/5 border-white/10 text-primary'}`}>
-                            <span className="material-symbols-outlined text-2xl">{isLive ? 'sports_baseball' : isRosterClosed ? 'lock' : 'group_add'}</span>
+                    )}
+
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border backdrop-blur-md ${isLive ? 'bg-primary text-background-dark border-primary' : isRosterClosed ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-white/10 text-white border-white/20'}`}>
+                                {isLive ? 'A DECORRER' : isRosterClosed ? 'CONVOCATÓRIA FECHADA' : 'ABERTO A INSCRIÇÕES'}
+                            </span>
                         </div>
                     </div>
+
+                    <div className="flex justify-between items-end mb-4">
+                         <div>
+                             <h3 className="text-2xl font-black text-white mb-1 leading-none drop-shadow-lg">{locName}</h3>
+                             <div className="flex items-center gap-3">
+                                 <p className="text-gray-300 text-xs flex items-center gap-1.5 font-bold drop-shadow-md">
+                                     <span className="material-symbols-outlined text-sm text-primary">calendar_today</span>
+                                     {new Date(activeTournament.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' })} • {activeTournament.time}
+                                 </p>
+                             </div>
+                         </div>
+                         
+                         {/* Botão GPS */}
+                         {loc?.googleMapsUrl && (
+                             <a href={loc.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="size-10 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-primary hover:text-background-dark transition-all shadow-lg active:scale-90 z-20">
+                                 <span className="material-symbols-outlined text-lg">near_me</span>
+                             </a>
+                         )}
+                    </div>
+
                     <div className="space-y-2">
                         <div className="flex justify-between items-end">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Jogadores ({confirmedCount}/8)</span>
-                            <span className={`text-xs font-bold font-mono ${isQuorumReached ? 'text-emerald-400' : 'text-white'}`}>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest drop-shadow-md">Jogadores ({confirmedCount}/8)</span>
+                            <span className={`text-xs font-bold font-mono drop-shadow-md ${isQuorumReached ? 'text-emerald-400' : 'text-white'}`}>
                                 {isQuorumReached ? 'LOTAÇÃO ESGOTADA' : `FALTAM ${8 - confirmedCount}`}
                             </span>
                         </div>
-                        <div className="h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 p-0.5">
+                        <div className="h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/10 p-0.5 backdrop-blur-sm">
                             <div style={{ width: `${Math.min(100, (confirmedCount / 8) * 100)}%` }} className={`h-full transition-all duration-1000 rounded-full ${isQuorumReached ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-primary'}`}></div>
                         </div>
                     </div>

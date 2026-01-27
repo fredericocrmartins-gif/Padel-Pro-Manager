@@ -72,6 +72,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editNickname, setEditNickname] = useState('');
+  const [editHand, setEditHand] = useState<'Destro' | 'Canhoto'>('Destro');
   const [editImage, setEditImage] = useState('');
   const [editColor, setEditColor] = useState('');
 
@@ -80,6 +81,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         setEditFirstName(player.name);
         setEditLastName(player.lastName || '');
         setEditNickname(player.nickname || '');
+        setEditHand(player.hand || 'Destro');
         setEditImage(player.image);
         setEditColor(player.backgroundColor || getColorForId(player.id));
     }
@@ -241,8 +243,12 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
              {player.level.toUpperCase()}
           </div>
         </div>
-        <h1 className="text-2xl font-black text-white leading-tight">{player.nickname || player.name}</h1>
-        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">{player.name} {player.lastName}</p>
+        <h1 className="text-2xl font-black text-white leading-tight">{player.name} {player.lastName}</h1>
+        <div className="flex items-center gap-2 mt-1">
+            {player.nickname && <p className="text-gray-400 text-xs font-bold">"{player.nickname}"</p>}
+            <span className="text-gray-600 text-[10px]">•</span>
+            <p className="text-primary text-[10px] font-bold uppercase tracking-widest">{player.hand || 'Destro'}</p>
+        </div>
       </header>
 
       <div className="px-4">
@@ -422,10 +428,27 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Alcunha</label>
                         <input type="text" value={editNickname} onChange={(e) => setEditNickname(e.target.value)} className="w-full bg-card-dark border border-primary/30 rounded-xl px-4 py-3 text-white text-sm" />
                     </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Mão de Jogo</label>
+                        <div className="flex bg-card-dark rounded-xl p-1 border border-white/10">
+                            <button 
+                                onClick={() => setEditHand('Destro')}
+                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all ${editHand === 'Destro' ? 'bg-primary text-background-dark shadow-md' : 'text-gray-500'}`}
+                            >
+                                Destro
+                            </button>
+                            <button 
+                                onClick={() => setEditHand('Canhoto')}
+                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all ${editHand === 'Canhoto' ? 'bg-primary text-background-dark shadow-md' : 'text-gray-500'}`}
+                            >
+                                Canhoto
+                            </button>
+                        </div>
+                    </div>
                   </div>
               </div>
               <div className="mt-12 pb-6">
-                <button onClick={() => { if(onUpdatePlayer) { onUpdatePlayer({...player, name: editFirstName, lastName: editLastName, nickname: editNickname, image: editImage, backgroundColor: editColor}); setIsEditing(false); } }} className="w-full py-4 bg-primary text-background-dark font-bold rounded-2xl shadow-xl shadow-primary/20">Guardar Alterações</button>
+                <button onClick={() => { if(onUpdatePlayer) { onUpdatePlayer({...player, name: editFirstName, lastName: editLastName, nickname: editNickname, hand: editHand, image: editImage, backgroundColor: editColor}); setIsEditing(false); } }} className="w-full py-4 bg-primary text-background-dark font-bold rounded-2xl shadow-xl shadow-primary/20">Guardar Alterações</button>
               </div>
           </div>
       )}
