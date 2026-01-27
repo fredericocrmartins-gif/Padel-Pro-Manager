@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Screen, Match, Player, Tournament, Location } from './types';
 import { Navigation } from './components/Navigation';
 import { HomeScreen } from './screens/HomeScreen';
@@ -33,15 +33,41 @@ const DEFAULT_LOCATIONS: Location[] = [
 ];
 
 const App: React.FC = () => {
+  // Inicialização do estado a partir do LocalStorage
+  const [players, setPlayers] = useState<Player[]>(() => {
+    const saved = localStorage.getItem('padel_players');
+    return saved ? JSON.parse(saved) : MOCK_PLAYERS;
+  });
+
+  const [locations, setLocations] = useState<Location[]>(() => {
+    const saved = localStorage.getItem('padel_locations');
+    return saved ? JSON.parse(saved) : DEFAULT_LOCATIONS;
+  });
+
+  const [tournamentHistory, setTournamentHistory] = useState<Tournament[]>(() => {
+    const saved = localStorage.getItem('padel_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [currentScreen, setScreen] = useState<Screen>(Screen.HOME);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
   const [currentRound, setCurrentRound] = useState(1);
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
-  const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [tournamentHistory, setTournamentHistory] = useState<Tournament[]>([]);
   const [selectedHistoryTournament, setSelectedHistoryTournament] = useState<Tournament | null>(null);
+
+  // Efeitos para guardar dados sempre que mudam
+  useEffect(() => {
+    localStorage.setItem('padel_players', JSON.stringify(players));
+  }, [players]);
+
+  useEffect(() => {
+    localStorage.setItem('padel_locations', JSON.stringify(locations));
+  }, [locations]);
+
+  useEffect(() => {
+    localStorage.setItem('padel_history', JSON.stringify(tournamentHistory));
+  }, [tournamentHistory]);
 
   const playerRankings = useMemo(() => {
     const rankings = new Map<string, { current: number, history: { date: string, points: number, level: string }[] }>();
@@ -108,22 +134,16 @@ const App: React.FC = () => {
     const currentRoundMatches = matches.filter(m => m.round === currentRound);
     if (currentRoundMatches.length < 2) return;
 
-    // Marcar ronda atual como finalizada
     const updatedAllMatches = matches.map(m => m.round === currentRound ? { ...m, status: 'finished' as const } : m);
 
     if (currentRound === 1) {
-        // Lógica Ronda 2: Vencedores ficam, Derrotados trocam
         const matchC1 = currentRoundMatches.find(m => m.court === 1)!;
         const matchC2 = currentRoundMatches.find(m => m.court === 2)!;
-
         const winC1 = matchC1.score1 > matchC1.score2 ? matchC1.team1 : matchC1.team2;
         const lossC1 = matchC1.score1 > matchC1.score2 ? matchC1.team2 : matchC1.team1;
-
         const winC2 = matchC2.score1 > matchC2.score2 ? matchC2.team1 : matchC2.team2;
         const lossC2 = matchC2.score1 > matchC2.score2 ? matchC2.team2 : matchC2.team1;
 
-        // Campo 1: Vencedor de C1 vs Derrotado de C2
-        // Campo 2: Vencedor de C2 vs Derrotado de C1
         const round2: Match[] = [
             { id: `m-r2-c1-${Date.now()}`, team1: winC1, team2: lossC2, score1: 0, score2: 0, court: 1, status: 'live' as const, round: 2, date: activeTournament?.date },
             { id: `m-r2-c2-${Date.now()}`, team1: winC2, team2: lossC1, score1: 0, score2: 0, court: 2, status: 'live' as const, round: 2, date: activeTournament?.date }
@@ -131,12 +151,8 @@ const App: React.FC = () => {
         setMatches([...updatedAllMatches, ...round2]);
         setCurrentRound(2);
     } else if (currentRound === 2) {
-        // Lógica Ronda 3: Confrontos que ainda não aconteceram
-        // Equipas originais do torneio
         const r1 = updatedAllMatches.filter(m => m.round === 1);
         const teams = [r1[0].team1, r1[0].team2, r1[1].team1, r1[1].team2];
-        
-        // Identificar os pares da Ronda 1 e 2
         const playedR1 = updatedAllMatches.filter(m => m.round === 1).map(m => [m.team1, m.team2]);
         const playedR2 = updatedAllMatches.filter(m => m.round === 2).map(m => [m.team1, m.team2]);
 
@@ -147,15 +163,11 @@ const App: React.FC = () => {
             pairsPlayed.add(ids.join('|'));
         });
 
-        // Procurar o par que falta
         let round3: Match[] = [];
         const t0Id = getTeamId(teams[0]);
-        
-        // Confronto para equipa 0
         for(let i=1; i<4; i++) {
             const pairKey = [t0Id, getTeamId(teams[i])].sort().join('|');
             if(!pairsPlayed.has(pairKey)) {
-                // Encontramos o adversário da equipa 0 para a R3
                 const otherTwo = teams.filter((_, idx) => idx !== 0 && idx !== i);
                 round3 = [
                     { id: `m-r3-c1-${Date.now()}`, team1: teams[0], team2: teams[i], score1: 0, score2: 0, court: 1, status: 'live' as const, round: 3, date: activeTournament?.date },
@@ -164,7 +176,6 @@ const App: React.FC = () => {
                 break;
             }
         }
-
         setMatches([...updatedAllMatches, ...round3]);
         setCurrentRound(3);
     } else {
@@ -194,6 +205,20 @@ const App: React.FC = () => {
     setScreen(Screen.TOURNAMENT_RESULTS);
   };
 
+  const handleDeleteTournament = (id: string) => {
+    if (window.confirm('Tem a certeza que deseja apagar este torneio do histórico? Esta ação é irreversível.')) {
+        setTournamentHistory(prev => prev.filter(t => t.id !== id));
+        if (selectedHistoryTournament?.id === id) setSelectedHistoryTournament(null);
+        setScreen(Screen.TOURNAMENT_HISTORY);
+    }
+  };
+
+  const handleDeletePlayer = (id: string) => {
+    if (window.confirm('Tem a certeza que deseja remover este jogador?')) {
+        setPlayers(prev => prev.filter(p => p.id !== id));
+    }
+  };
+
   const renderScreen = () => {
     switch (currentScreen) {
       case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={(t) => {setActiveTournament(t); setScreen(Screen.HOME);}} onAddPlayer={(p) => setPlayers([...players, p])} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
@@ -202,10 +227,10 @@ const App: React.FC = () => {
       case Screen.TOURNAMENT_SUMMARY: return <TournamentSummaryScreen setScreen={setScreen} matches={matches} updateMatchScore={updateMatchScore} onFinish={handleFinishTournament} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={matches} />;
       case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
-      case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} />;
-      case Screen.HISTORY_DETAIL: return selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} /> : null;
+      case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
+      case Screen.HISTORY_DETAIL: return selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} onDeleteTournament={handleDeleteTournament} /> : null;
       case Screen.TEAM_SETUP: return <TeamSetupScreen setScreen={setScreen} players={playersWithDynamicRanking.filter(p => activeTournament?.confirmedPlayerIds.includes(p.id))} onStartTournament={handleStartTournament} />;
-      case Screen.PLAYERS: return <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={(p) => setPlayers([...players, p])} onUpdatePlayer={(up) => setPlayers(players.map(p => p.id === up.id ? up : p))} />;
+      case Screen.PLAYERS: return <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={(p) => setPlayers([...players, p])} onUpdatePlayer={(up) => setPlayers(players.map(p => p.id === up.id ? up : p))} onDeletePlayer={handleDeletePlayer} />;
       case Screen.LOCATIONS: return <LocationManagerScreen setScreen={setScreen} locations={locations} setLocations={setLocations} history={tournamentHistory} />;
       default: return null;
     }

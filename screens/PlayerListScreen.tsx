@@ -9,6 +9,7 @@ interface PlayerListProps {
   onPlayerClick?: (id: string) => void;
   onAddPlayer?: (player: Player) => void;
   onUpdatePlayer?: (player: Player) => void;
+  onDeletePlayer?: (id: string) => void;
 }
 
 const PRESET_COLORS = [
@@ -18,7 +19,7 @@ const PRESET_COLORS = [
   'bg-pink-600'
 ];
 
-export const PlayerListScreen: React.FC<PlayerListProps> = ({ setScreen, players = [], onPlayerClick, onAddPlayer, onUpdatePlayer }) => {
+export const PlayerListScreen: React.FC<PlayerListProps> = ({ setScreen, players = [], onPlayerClick, onAddPlayer, onUpdatePlayer, onDeletePlayer }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
@@ -100,8 +101,8 @@ export const PlayerListScreen: React.FC<PlayerListProps> = ({ setScreen, players
       ) : (
         <div className="flex flex-col gap-3">
             {filteredPlayers.map((p, idx) => (
-                <div key={p.id} onClick={() => onPlayerClick && onPlayerClick(p.id)} className="group relative flex items-center justify-between p-4 rounded-2xl bg-card-dark shadow-sm ring-1 ring-white/5 hover:ring-primary/50 transition-all cursor-pointer overflow-hidden">
-                    <div className="flex items-center gap-4">
+                <div key={p.id} className="group relative flex items-center justify-between p-4 rounded-2xl bg-card-dark shadow-sm ring-1 ring-white/5 hover:ring-primary/50 transition-all overflow-hidden">
+                    <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => onPlayerClick && onPlayerClick(p.id)}>
                         <div className="relative">
                             {renderGlobalAvatar(p, 'size-12')}
                             <div className="absolute -top-1 -left-1 bg-background-dark px-1.5 py-0.5 rounded-md border border-white/10"><span className="text-[8px] font-black text-gray-500">{idx + 1}º</span></div>
@@ -111,7 +112,15 @@ export const PlayerListScreen: React.FC<PlayerListProps> = ({ setScreen, players
                             <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{p.level} • {p.rankingPoints} pts</span>
                         </div>
                     </div>
-                    <span className="material-symbols-outlined text-gray-700 group-hover:text-primary transition-colors">chevron_right</span>
+                    <div className="flex items-center gap-2">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onDeletePlayer?.(p.id); }}
+                          className="p-2 text-gray-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <span className="material-symbols-outlined text-lg">delete</span>
+                        </button>
+                        <span className="material-symbols-outlined text-gray-700 group-hover:text-primary transition-colors cursor-pointer" onClick={() => onPlayerClick && onPlayerClick(p.id)}>chevron_right</span>
+                    </div>
                 </div>
             ))}
         </div>

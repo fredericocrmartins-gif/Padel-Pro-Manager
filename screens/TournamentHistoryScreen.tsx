@@ -6,9 +6,10 @@ interface HistoryProps {
   history: Tournament[];
   locations: Location[];
   onViewTournament: (t: Tournament) => void;
+  onDeleteTournament?: (id: string) => void;
 }
 
-export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locations, onViewTournament }) => {
+export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locations, onViewTournament, onDeleteTournament }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
@@ -87,34 +88,42 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
           filteredHistory.map(t => {
             const loc = locations.find(l => l.id === t.locationId);
             return (
-              <button 
-                key={t.id} 
-                onClick={() => onViewTournament(t)}
-                className="bg-card-dark p-5 rounded-3xl border border-white/5 hover:border-primary/30 transition-all text-left group active:scale-[0.98]"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-1">
-                      {new Date(t.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </span>
-                    <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{loc?.name}</h3>
+              <div key={t.id} className="relative group">
+                <button 
+                  onClick={() => onViewTournament(t)}
+                  className="w-full bg-card-dark p-5 rounded-3xl border border-white/5 hover:border-primary/30 transition-all text-left group active:scale-[0.98]"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-1">
+                        {new Date(t.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </span>
+                      <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{loc?.name}</h3>
+                    </div>
+                    <div className="size-10 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                      <span className="material-symbols-outlined text-gray-500 group-hover:text-primary">chevron_right</span>
+                    </div>
                   </div>
-                  <div className="size-10 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                    <span className="material-symbols-outlined text-gray-500 group-hover:text-primary">chevron_right</span>
+                  
+                  <div className="flex items-center gap-4 text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">sports_tennis</span>
+                      <span className="text-[10px] font-bold uppercase">{t.matches?.length || 0} Jogos</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">schedule</span>
+                      <span className="text-[10px] font-bold uppercase">{t.time} • {t.duration}h</span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-4 text-gray-500">
-                  <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px]">sports_tennis</span>
-                    <span className="text-[10px] font-bold uppercase">{t.matches?.length || 0} Jogos</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px]">schedule</span>
-                    <span className="text-[10px] font-bold uppercase">{t.time} • {t.duration}h</span>
-                  </div>
-                </div>
-              </button>
+                </button>
+                {/* Botão de eliminar flutuante */}
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onDeleteTournament?.(t.id); }}
+                  className="absolute bottom-4 right-4 p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                >
+                  <span className="material-symbols-outlined text-base">delete</span>
+                </button>
+              </div>
             );
           })
         )}

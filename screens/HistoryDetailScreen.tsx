@@ -7,9 +7,10 @@ interface HistoryDetailProps {
   setScreen: (screen: Screen) => void;
   tournament: Tournament;
   locations: Location[];
+  onDeleteTournament?: (id: string) => void;
 }
 
-export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, tournament, locations }) => {
+export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, tournament, locations, onDeleteTournament }) => {
   const matches = tournament.matches || [];
   const loc = locations.find(l => l.id === tournament.locationId);
 
@@ -43,10 +44,14 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
               <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{new Date(tournament.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
               <h2 className="text-lg font-black text-white truncate max-w-[200px]">{loc?.name}</h2>
             </div>
-            <div className="size-11"></div>
+            <button 
+              onClick={() => onDeleteTournament?.(tournament.id)}
+              className="size-11 rounded-full flex items-center justify-center bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors"
+            >
+              <span className="material-symbols-outlined">delete</span>
+            </button>
         </header>
 
-        {/* Resumo / Vencedor Geral */}
         {standings.length > 0 && (
             <section className="bg-gradient-to-br from-primary/20 to-card-dark rounded-[2.5rem] p-6 border border-primary/20 shadow-2xl relative overflow-hidden">
                 <div className="absolute -right-6 -top-6 size-32 bg-primary/10 blur-3xl rounded-full"></div>
@@ -71,7 +76,6 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
             </section>
         )}
 
-        {/* Lista de Jogos por Ronda */}
         <div className="space-y-8">
             {rounds.map(round => (
                 <div key={round} className="space-y-4">
@@ -92,7 +96,6 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
                                     </div>
 
                                     <div className="flex items-center justify-between gap-2">
-                                        {/* Equipa 1 */}
                                         <div className={`flex flex-col items-center gap-2 flex-1 transition-all duration-500 ${team2Wins ? 'opacity-40 grayscale' : 'scale-105'}`}>
                                             <div className="flex -space-x-2">
                                                 {match.team1.map(p => <div key={p.id}>{renderGlobalAvatar(p, 'size-8')}</div>)}
@@ -103,14 +106,12 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
                                             {team1Wins && <span className="text-[8px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase">Win</span>}
                                         </div>
 
-                                        {/* Score */}
                                         <div className="flex items-center gap-3 bg-background-dark/50 px-4 py-2 rounded-2xl border border-white/5">
                                             <span className={`text-2xl font-black ${team1Wins ? 'text-primary' : 'text-gray-600'}`}>{match.score1}</span>
                                             <span className="text-gray-800 font-black">-</span>
                                             <span className={`text-2xl font-black ${team2Wins ? 'text-primary' : 'text-gray-600'}`}>{match.score2}</span>
                                         </div>
 
-                                        {/* Equipa 2 */}
                                         <div className={`flex flex-col items-center gap-2 flex-1 transition-all duration-500 ${team1Wins ? 'opacity-40 grayscale' : 'scale-105'}`}>
                                             <div className="flex -space-x-2">
                                                 {match.team2.map(p => <div key={p.id}>{renderGlobalAvatar(p, 'size-8')}</div>)}
