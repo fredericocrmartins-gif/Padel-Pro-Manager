@@ -42,14 +42,9 @@ const App: React.FC = () => {
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() => {
     const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
     const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-
-    if (envUrl && envKey) {
-      return { url: envUrl, key: envKey, enabled: true };
-    }
-
+    if (envUrl && envKey) return { url: envUrl, key: envKey, enabled: true };
     const saved = localStorage.getItem('padel_cloud_config');
-    const localConfig = saved ? JSON.parse(saved) : { url: '', key: '', enabled: false };
-    return localConfig;
+    return saved ? JSON.parse(saved) : { url: '', key: '', enabled: false };
   });
 
   const [currentScreen, setScreen] = useState<Screen>(Screen.HOME);
@@ -62,28 +57,19 @@ const App: React.FC = () => {
   const fetchCloudData = useCallback(async (config: CloudConfig) => {
     if (!config.enabled || !config.url || !config.key) return null;
     try {
-      const headers = { 
-        'apikey': config.key, 
-        'Authorization': `Bearer ${config.key}`,
-        'Content-Type': 'application/json'
-      };
-      
+      const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}`, 'Content-Type': 'application/json' };
       const [pRes, lRes, tRes] = await Promise.all([
         fetch(`${config.url}/rest/v1/players?select=data`, { headers }).then(r => r.json()),
         fetch(`${config.url}/rest/v1/locations?select=data`, { headers }).then(r => r.json()),
         fetch(`${config.url}/rest/v1/tournaments?select=data&order=created_at.desc`, { headers }).then(r => r.json())
       ]);
-
       if (!Array.isArray(pRes)) return null;
-
       return {
         players: pRes.length > 0 ? pRes.map((i: any) => i.data) : MOCK_PLAYERS,
         locations: lRes.length > 0 ? lRes.map((i: any) => i.data) : DEFAULT_LOCATIONS,
         history: tRes.map((i: any) => i.data)
       };
-    } catch (e) { 
-      return null; 
-    }
+    } catch (e) { return null; }
   }, []);
 
   const pushToCloud = async (table: 'players' | 'locations' | 'tournaments', id: string, data: any) => {
@@ -91,15 +77,10 @@ const App: React.FC = () => {
     try {
       await fetch(`${cloudConfig.url}/rest/v1/${table}`, {
         method: 'POST',
-        headers: { 
-          'apikey': cloudConfig.key, 
-          'Authorization': `Bearer ${cloudConfig.key}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates'
-        },
+        headers: { 'apikey': cloudConfig.key, 'Authorization': `Bearer ${cloudConfig.key}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify({ id, data })
       });
-    } catch (e) { console.error(`Erro ao gravar ${table}:`, e); }
+    } catch (e) {}
   };
 
   const deleteFromCloud = async (table: 'players' | 'locations' | 'tournaments', id: string) => {
@@ -109,25 +90,18 @@ const App: React.FC = () => {
         method: 'DELETE',
         headers: { 'apikey': cloudConfig.key, 'Authorization': `Bearer ${cloudConfig.key}` }
       });
-    } catch (e) { console.error(`Erro ao apagar ${table}:`, e); }
+    } catch (e) {}
   };
 
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
       const cloudData = await fetchCloudData(cloudConfig);
-      
       if (cloudData) {
-        setPlayers(cloudData.players);
-        setLocations(cloudData.locations);
-        setTournamentHistory(cloudData.history);
+        setPlayers(cloudData.players); setLocations(cloudData.locations); setTournamentHistory(cloudData.history);
       } else {
-        const p = localStorage.getItem('padel_players');
-        const l = localStorage.getItem('padel_locations');
-        const h = localStorage.getItem('padel_history');
-        if (p) setPlayers(JSON.parse(p));
-        if (l) setLocations(JSON.parse(l));
-        if (h) setTournamentHistory(JSON.parse(h));
+        const p = localStorage.getItem('padel_players'), l = localStorage.getItem('padel_locations'), h = localStorage.getItem('padel_history');
+        if (p) setPlayers(JSON.parse(p)); if (l) setLocations(JSON.parse(l)); if (h) setTournamentHistory(JSON.parse(h));
       }
       setIsLoading(false);
     };
@@ -147,13 +121,11 @@ const App: React.FC = () => {
     const rankings = new Map<string, { current: number, history: { date: string, points: number, level: string }[] }>();
     players.forEach(p => rankings.set(p.id, { current: 1000, history: [{ date: 'Início', points: 1000, level: 'Nível 1' }] }));
     const sortedHistory = [...tournamentHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
     sortedHistory.forEach(t => {
         if (!t.matches) return;
         const teamWins = new Map<string, { wins: number, diff: number, pids: string[] }>();
         t.matches.forEach(m => {
-            const k1 = m.team1.map(p => p.id).sort().join('-');
-            const k2 = m.team2.map(p => p.id).sort().join('-');
+            const k1 = m.team1.map(p => p.id).sort().join('-'), k2 = m.team2.map(p => p.id).sort().join('-');
             if (!teamWins.has(k1)) teamWins.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p=>p.id) });
             if (!teamWins.has(k2)) teamWins.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p=>p.id) });
             const s1 = teamWins.get(k1)!, s2 = teamWins.get(k2)!;
@@ -164,11 +136,9 @@ const App: React.FC = () => {
         const championsIds = standingsArr[0]?.pids || [];
         t.matches.forEach(m => {
             const updateP = (p: Player, won: boolean) => {
-                const d = rankings.get(p.id);
-                if (d) { d.current += won ? 20 : -12; if (d.current < 800) d.current = 800; }
+                const d = rankings.get(p.id); if (d) { d.current += won ? 20 : -12; if (d.current < 800) d.current = 800; }
             };
-            m.team1.forEach(p => updateP(p, m.score1 > m.score2));
-            m.team2.forEach(p => updateP(p, m.score2 > m.score1));
+            m.team1.forEach(p => updateP(p, m.score1 > m.score2)); m.team2.forEach(p => updateP(p, m.score2 > m.score1));
         });
         const affected = new Set<string>();
         t.matches.forEach(m => [...m.team1, ...m.team2].forEach(p => affected.add(p.id)));
@@ -186,71 +156,58 @@ const App: React.FC = () => {
 
   const playersWithDynamicRanking = useMemo(() => {
     return players.map(p => {
-        const r = playerRankings.get(p.id);
-        const pts = r?.current || 1000;
+        const r = playerRankings.get(p.id); const pts = r?.current || 1000;
         const getL = (pts: number) => pts >= 1600 ? 'Pro' : pts >= 1400 ? 'Nível 3' : pts >= 1200 ? 'Nível 2' : 'Nível 1';
         return { ...p, rankingPoints: pts, level: getL(pts) };
     });
   }, [players, playerRankings]);
 
   const handleNextRound = () => {
-    if (currentRound < 3) {
-      const nextRoundNumber = currentRound + 1;
-      const alreadyExists = matches.some(m => m.round === nextRoundNumber);
-      
-      if (!alreadyExists) {
-        // Encontrar as 4 equipas originais da Ronda 1
-        const r1m1 = matches.find(m => m.round === 1 && m.court === 1);
-        const r1m2 = matches.find(m => m.round === 1 && m.court === 2);
-        
-        if (r1m1 && r1m2) {
-          const teamAses = r1m1.team1;
-          const teamReis = r1m1.team2;
-          const teamDamas = r1m2.team1;
-          const teamValetes = r1m2.team2;
-
-          let nextMatches: Match[] = [];
-          const timestamp = Date.now();
-          const dateStr = new Date().toISOString();
-
-          if (nextRoundNumber === 2) {
-            // Ronda 2: Ases vs Damas (C1) | Reis vs Valetes (C2)
-            nextMatches = [
-              { id: `m3-${timestamp}`, team1: teamAses, team2: teamDamas, score1: 0, score2: 0, court: 1, status: 'live', round: 2, date: dateStr },
-              { id: `m4-${timestamp}`, team1: teamReis, team2: teamValetes, score1: 0, score2: 0, court: 2, status: 'live', round: 2, date: dateStr }
-            ];
-          } else if (nextRoundNumber === 3) {
-            // Ronda 3: Ases vs Valetes (C1) | Reis vs Damas (C2)
-            nextMatches = [
-              { id: `m5-${timestamp}`, team1: teamAses, team2: teamValetes, score1: 0, score2: 0, court: 1, status: 'live', round: 3, date: dateStr },
-              { id: `m6-${timestamp}`, team1: teamReis, team2: teamDamas, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
-            ];
-          }
-          setMatches(prev => [...prev, ...nextMatches]);
-        }
-      }
-      setCurrentRound(nextRoundNumber);
-    } else {
+    const nextRoundNumber = currentRound + 1;
+    if (nextRoundNumber > 3) {
       handleFinishTournament();
+      return;
+    }
+
+    const r1 = matches.filter(m => m.round === 1);
+    const m1 = r1.find(m => m.court === 1);
+    const m2 = r1.find(m => m.court === 2);
+
+    if (m1 && m2) {
+      // Determinar vencedores e derrotados da Ronda 1
+      const winner1 = m1.score1 > m1.score2 ? m1.team1 : m1.team2;
+      const loser1 = m1.score1 > m1.score2 ? m1.team2 : m1.team1;
+      const winner2 = m2.score1 > m2.score2 ? m2.team1 : m2.team2;
+      const loser2 = m2.score1 > m2.score2 ? m2.team2 : m2.team1;
+
+      let nextMatches: Match[] = [];
+      const timestamp = Date.now();
+      const dateStr = new Date().toISOString();
+
+      if (nextRoundNumber === 2) {
+        // Regra: Vencedor mantém campo, Derrotado troca.
+        // Campo 1: Vencedor C1 vs Vencedor C2 (C2 subiu)
+        // Campo 2: Derrotado C1 vs Derrotado C2 (C1 desceu)
+        nextMatches = [
+          { id: `m-r2-c1-${timestamp}`, team1: winner1, team2: winner2, score1: 0, score2: 0, court: 1, status: 'live', round: 2, date: dateStr },
+          { id: `m-r2-c2-${timestamp}`, team1: loser1, team2: loser2, score1: 0, score2: 0, court: 2, status: 'live', round: 2, date: dateStr }
+        ];
+      } else if (nextRoundNumber === 3) {
+        // Regra: Ronda Final - Todos contra Todos (confrontos que faltam)
+        // Se R1: A-B, C-D e R2: A-C, B-D -> R3 deve ser A-D, B-C
+        nextMatches = [
+          { id: `m-r3-c1-${timestamp}`, team1: winner1, team2: loser2, score1: 0, score2: 0, court: 1, status: 'live', round: 3, date: dateStr },
+          { id: `m-r3-c2-${timestamp}`, team1: winner2, team2: loser1, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
+        ];
+      }
+      setMatches(prev => [...prev, ...nextMatches]);
+      setCurrentRound(nextRoundNumber);
     }
   };
 
-  const handleAddPlayer = async (p: Player) => {
-    setPlayers(prev => [...prev, p]);
-    await pushToCloud('players', p.id, p);
-  };
-
-  const handleUpdatePlayer = async (p: Player) => {
-    setPlayers(prev => prev.map(old => old.id === p.id ? p : old));
-    await pushToCloud('players', p.id, p);
-  };
-
-  const handleDeletePlayer = async (id: string) => {
-    if (window.confirm('Remover jogador?')) {
-        setPlayers(prev => prev.filter(p => p.id !== id));
-        await deleteFromCloud('players', id);
-    }
-  };
+  const handleAddPlayer = async (p: Player) => { setPlayers(prev => [...prev, p]); await pushToCloud('players', p.id, p); };
+  const handleUpdatePlayer = async (p: Player) => { setPlayers(prev => prev.map(old => old.id === p.id ? p : old)); await pushToCloud('players', p.id, p); };
+  const handleDeletePlayer = async (id: string) => { if (window.confirm('Remover jogador?')) { setPlayers(prev => prev.filter(p => p.id !== id)); await deleteFromCloud('players', id); } };
 
   const handleFinishTournament = async () => {
     if (activeTournament) {
@@ -261,23 +218,16 @@ const App: React.FC = () => {
         };
         setTournamentHistory(prev => [finished, ...prev]);
         setActiveTournament(null);
-        setMatches([]); // Limpar para o próximo
+        setMatches([]);
         await pushToCloud('tournaments', finished.id, finished);
     }
     setScreen(Screen.TOURNAMENT_RESULTS);
   };
 
-  const handleDeleteTournament = async (id: string) => {
-    if (window.confirm('Apagar do histórico?')) {
-        setTournamentHistory(prev => prev.filter(t => t.id !== id));
-        await deleteFromCloud('tournaments', id);
-        setScreen(Screen.TOURNAMENT_HISTORY);
-    }
-  };
+  const handleDeleteTournament = async (id: string) => { if (window.confirm('Apagar do histórico?')) { setTournamentHistory(prev => prev.filter(t => t.id !== id)); await deleteFromCloud('tournaments', id); setScreen(Screen.TOURNAMENT_HISTORY); } };
 
   const renderScreen = () => {
     if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">Sincronizando Cloud...</p></div>;
-
     switch (currentScreen) {
       case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={setActiveTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
       case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
@@ -297,12 +247,9 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-background-dark text-white font-sans selection:bg-primary selection:text-background-dark">
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl border-x border-white/5 bg-background-dark">
-        {/* Status Bar */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 pointer-events-none">
           <div className={`size-1.5 rounded-full ${cloudConfig.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">
-            {cloudConfig.enabled ? 'Database Cloud On' : 'Modo Offline Local'}
-          </span>
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Database Cloud On' : 'Modo Offline Local'}</span>
         </div>
         {renderScreen()}
         {[Screen.HOME, Screen.PROFILE, Screen.GLOBAL_STATS, Screen.PLAYERS, Screen.SETTINGS, Screen.TOURNAMENT_HISTORY].includes(currentScreen) && <Navigation currentScreen={currentScreen} setScreen={setScreen} />}

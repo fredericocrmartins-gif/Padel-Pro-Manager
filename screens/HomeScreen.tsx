@@ -53,7 +53,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setDate(today);
     setSelectedPlayers([]);
     
-    // Procura o LX Indoor Padel nos locais
     const lxIndoor = locations.find(l => l.name.toLowerCase().includes('lx indoor'));
     if (lxIndoor) {
         setLocationId(lxIndoor.id);
@@ -90,7 +89,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         name: guestName,
         nickname: guestNickname || guestName,
         level: 'Nível 3',
-        image: '' // Will use placeholder
+        image: '' 
     };
     onAddPlayer(newPlayer);
     if (activeTournament) {
@@ -250,7 +249,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   return (
     <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in">
         <header className="flex justify-between items-start"><div><h1 className="text-3xl font-bold tracking-tight mb-1">Padel Manager</h1><p className="text-slate-400">Bom dia! Pronto para o próximo jogo?</p></div><button onClick={initCreation} className="bg-primary text-background-dark p-2.5 rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all"><span className="material-symbols-outlined font-bold">add</span></button></header>
-        <section className="grid grid-cols-3 gap-3"><div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm"><span className="material-symbols-outlined text-primary mb-1">sports_tennis</span><span className="text-xl font-bold text-white">{totalGames}</span><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Jogos</span></div><div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm"><span className="material-symbols-outlined text-purple-400 mb-1">schedule</span><span className="text-xl font-bold text-white">{totalHours}h</span><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Tempo</span></div><div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm overflow-hidden"><span className="material-symbols-outlined text-emerald-400 mb-1">star</span><span className="text-[10px] font-bold text-white text-center truncate w-full">{favLocation}</span><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Clube</span></div></section>
+        <section className="grid grid-cols-3 gap-3">
+          <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
+            <span className="material-symbols-outlined text-primary mb-1">sports_tennis</span>
+            <span className="text-xl font-bold text-white">{totalGames}</span>
+            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Jogos</span>
+          </div>
+          <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
+            <span className="material-symbols-outlined text-purple-400 mb-1">schedule</span>
+            <span className="text-xl font-bold text-white">{totalHours}h</span>
+            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Tempo</span>
+          </div>
+          <button 
+            onClick={() => setScreen(Screen.LOCATIONS)}
+            className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm overflow-hidden active:scale-95 transition-all group"
+          >
+            <span className="material-symbols-outlined text-emerald-400 mb-1 group-hover:scale-110 transition-transform">star</span>
+            <span className="text-[10px] font-bold text-white text-center truncate w-full">{favLocation}</span>
+            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Clube</span>
+          </button>
+        </section>
         <button onClick={initCreation} className="w-full bg-gradient-to-r from-primary to-blue-600 p-6 rounded-3xl shadow-xl shadow-primary/20 flex flex-col items-start gap-1 relative overflow-hidden group active:scale-[0.98] transition-all"><div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500"><span className="material-symbols-outlined text-6xl">event_available</span></div><span className="text-background-dark font-bold uppercase tracking-widest text-[10px]">Agendamento</span><span className="text-background-dark font-bold text-xl">Criar Novo Torneio</span><span className="text-background-dark/70 text-xs">Selecione local, data e jogadores iniciais.</span></button>
         <section className="flex flex-col gap-4">
             <div className="flex items-center justify-between px-1"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Últimos Torneios</h3><button onClick={() => setScreen(Screen.GLOBAL_STATS)} className="text-[10px] font-bold text-primary">Ver Tudo</button></div>
