@@ -164,8 +164,10 @@ const App: React.FC = () => {
 
   const handleNextRound = () => {
     const nextRoundNumber = currentRound + 1;
+    
+    // NOVO: Em vez de finalizar direto, vai para o Resumo para correção/revisão
     if (nextRoundNumber > 3) {
-      handleFinishTournament();
+      setScreen(Screen.TOURNAMENT_SUMMARY);
       return;
     }
 
@@ -174,7 +176,6 @@ const App: React.FC = () => {
     const m2 = r1.find(m => m.court === 2);
 
     if (m1 && m2) {
-      // Determinar vencedores e derrotados da Ronda 1
       const winner1 = m1.score1 > m1.score2 ? m1.team1 : m1.team2;
       const loser1 = m1.score1 > m1.score2 ? m1.team2 : m1.team1;
       const winner2 = m2.score1 > m2.score2 ? m2.team1 : m2.team2;
@@ -185,16 +186,11 @@ const App: React.FC = () => {
       const dateStr = new Date().toISOString();
 
       if (nextRoundNumber === 2) {
-        // Regra: Vencedor mantém campo, Derrotado troca.
-        // Campo 1: Vencedor C1 vs Vencedor C2 (C2 subiu)
-        // Campo 2: Derrotado C1 vs Derrotado C2 (C1 desceu)
         nextMatches = [
           { id: `m-r2-c1-${timestamp}`, team1: winner1, team2: winner2, score1: 0, score2: 0, court: 1, status: 'live', round: 2, date: dateStr },
           { id: `m-r2-c2-${timestamp}`, team1: loser1, team2: loser2, score1: 0, score2: 0, court: 2, status: 'live', round: 2, date: dateStr }
         ];
       } else if (nextRoundNumber === 3) {
-        // Regra: Ronda Final - Todos contra Todos (confrontos que faltam)
-        // Se R1: A-B, C-D e R2: A-C, B-D -> R3 deve ser A-D, B-C
         nextMatches = [
           { id: `m-r3-c1-${timestamp}`, team1: winner1, team2: loser2, score1: 0, score2: 0, court: 1, status: 'live', round: 3, date: dateStr },
           { id: `m-r3-c2-${timestamp}`, team1: winner2, team2: loser1, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
@@ -226,12 +222,22 @@ const App: React.FC = () => {
 
   const handleDeleteTournament = async (id: string) => { if (window.confirm('Apagar do histórico?')) { setTournamentHistory(prev => prev.filter(t => t.id !== id)); await deleteFromCloud('tournaments', id); setScreen(Screen.TOURNAMENT_HISTORY); } };
 
+  const updateMatchScore = (id: string, team: 1 | 2, increment: boolean) => {
+    setMatches(prev => prev.map(m => m.id === id ? {
+      ...m, 
+      [team === 1 ? 'score1' : 'score2']: increment 
+        ? m[team === 1 ? 'score1' : 'score2'] + 1 
+        : Math.max(0, m[team === 1 ? 'score1' : 'score2'] - 1)
+    } : m));
+  };
+
   const renderScreen = () => {
     if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">Sincronizando Cloud...</p></div>;
     switch (currentScreen) {
       case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={setActiveTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
       case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
-      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={handleNextRound} currentRound={currentRound} />;
+      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={updateMatchScore} onNextRound={handleNextRound} currentRound={currentRound} />;
+      case Screen.TOURNAMENT_SUMMARY: return <TournamentSummaryScreen setScreen={setScreen} matches={matches} updateMatchScore={updateMatchScore} onFinish={handleFinishTournament} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={tournamentHistory[0]?.matches || []} />;
       case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
       case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
