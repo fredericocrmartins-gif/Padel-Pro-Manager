@@ -15,17 +15,10 @@ import { HistoryDetailScreen } from './screens/HistoryDetailScreen';
 import { TournamentHistoryScreen } from './screens/TournamentHistoryScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 
-const DEFAULT_LOCATIONS: Location[] = [
-  { id: '1', name: 'Rackets Pro EUL', type: 'Outdoor', address: 'Azinhaga das Galhardas, Lisboa' },
-  { id: '2', name: 'W Padel Country Club', type: 'Indoor', address: 'Parque Florestal de Monsanto, Lisboa' },
-  { id: '3', name: 'LX Indoor Padel', type: 'Indoor', address: 'Rua das Eiras 14, Camarate' },
-  { id: '4', name: 'Lisboa Racket Centre', type: 'Outdoor', address: 'Rua Alferes Malheiro, Lisboa' }
-];
-
 const App: React.FC = () => {
-  // Inicializa com listas vazias para permitir introdução manual
+  // Inicializa com listas vazias para permitir introdução manual total (White Label)
   const [players, setPlayers] = useState<Player[]>([]);
-  const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [tournamentHistory, setTournamentHistory] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -55,9 +48,9 @@ const App: React.FC = () => {
       ]);
       if (!Array.isArray(pRes)) return null;
       return {
-        // Se a cloud estiver vazia, retorna listas vazias (exceto locais default se desejado)
+        // Se a cloud estiver vazia, retorna listas vazias
         players: pRes.length > 0 ? pRes.map((i: any) => i.data) : [],
-        locations: lRes.length > 0 ? lRes.map((i: any) => i.data) : DEFAULT_LOCATIONS,
+        locations: lRes.length > 0 ? lRes.map((i: any) => i.data) : [],
         history: tRes.map((i: any) => i.data)
       };
     } catch (e) { return null; }
