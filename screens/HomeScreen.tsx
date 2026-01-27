@@ -31,7 +31,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [playerSearchTerm, setPlayerSearchTerm] = useState('');
   
   const [isAddingGuest, setIsAddingGuest] = useState(false);
-  const [guestName, setGuestName] = useState('');
+  const [guestFirstName, setGuestFirstName] = useState('');
+  const [guestLastName, setGuestLastName] = useState('');
   const [guestNickname, setGuestNickname] = useState('');
   
   const [date, setDate] = useState('');
@@ -108,12 +109,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleSaveGuest = () => {
-    if (!guestName.trim()) return;
+    if (!guestFirstName.trim()) return;
     const newId = `p-${Date.now()}`;
     const newPlayer: Player = {
         id: newId,
-        name: guestName,
-        nickname: guestNickname || guestName,
+        name: guestFirstName,
+        lastName: guestLastName,
+        nickname: guestNickname || guestFirstName,
         level: 'Nível 3',
         image: '' 
     };
@@ -125,7 +127,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             confirmedPlayerIds: [...activeTournament.confirmedPlayerIds, newId]
         });
     }
-    setGuestName('');
+    setGuestFirstName('');
+    setGuestLastName('');
     setGuestNickname('');
     setIsAddingGuest(false);
   };
@@ -257,7 +260,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                                     Novo Convidado
                                 </h3>
                                 <div className="space-y-3">
-                                    <input type="text" placeholder="Nome Completo" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:border-primary/50 transition-colors" />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <input type="text" placeholder="Nome" value={guestFirstName} onChange={(e) => setGuestFirstName(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:border-primary/50 transition-colors" />
+                                        <input type="text" placeholder="Apelido" value={guestLastName} onChange={(e) => setGuestLastName(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:border-primary/50 transition-colors" />
+                                    </div>
                                     <input type="text" placeholder="Alcunha (Opcional)" value={guestNickname} onChange={(e) => setGuestNickname(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:border-primary/50 transition-colors" />
                                     <div className="flex gap-2">
                                         <button onClick={() => setIsAddingGuest(false)} className="flex-1 py-3 text-gray-400 font-bold text-xs uppercase border border-white/10 rounded-xl hover:bg-white/5">Cancelar</button>
