@@ -337,11 +337,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
             )}
 
-            <header>
-                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-slate-400">
-                    {isLive ? 'Torneio em andamento!' : isRosterClosed ? 'Tudo pronto para começar.' : 'Fase de convocatória.'}
-                </p>
+            <header className="flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight mb-1">Padel Manager</h1>
+                    <p className="text-slate-400">
+                        {isLive ? 'Torneio em andamento!' : isRosterClosed ? 'Tudo pronto para começar.' : 'Fase de convocatória.'}
+                    </p>
+                </div>
             </header>
             
             {StatsSection}
