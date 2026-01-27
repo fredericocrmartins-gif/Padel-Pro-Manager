@@ -13,7 +13,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentScreen, setScreen
     { id: Screen.TOURNAMENT_HISTORY, icon: 'history', label: 'Histórico' },
     { id: Screen.GLOBAL_STATS, icon: 'bar_chart', label: 'Stats' },
     { id: Screen.PLAYERS, icon: 'groups', label: 'Jogadores' },
-    { id: Screen.LOCATIONS, icon: 'location_on', label: 'Locais' },
+    { id: Screen.SETTINGS, icon: 'settings', label: 'Config' },
   ];
 
   return (

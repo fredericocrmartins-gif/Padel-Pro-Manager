@@ -7,11 +7,17 @@ export enum Screen {
   TOURNAMENT_SUMMARY = 'TOURNAMENT_SUMMARY',
   TOURNAMENT_RESULTS = 'TOURNAMENT_RESULTS',
   TEAM_SETUP = 'TEAM_SETUP',
-  EXPORT = 'EXPORT',
+  SETTINGS = 'SETTINGS',
   GLOBAL_STATS = 'GLOBAL_STATS',
   LOCATIONS = 'LOCATIONS',
   HISTORY_DETAIL = 'HISTORY_DETAIL',
   TOURNAMENT_HISTORY = 'TOURNAMENT_HISTORY'
+}
+
+export interface CloudConfig {
+  url: string;
+  key: string;
+  enabled: boolean;
 }
 
 export interface Player {
@@ -24,7 +30,7 @@ export interface Player {
   level: string; 
   rankingPoints?: number; 
   image: string;
-  backgroundColor?: string; // Nova propriedade para cor personalizada
+  backgroundColor?: string;
 }
 
 export interface Location {

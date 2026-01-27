@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Screen, Match, Player, Tournament, Location } from './types';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Screen, Match, Player, Tournament, Location, CloudConfig } from './types';
 import { Navigation } from './components/Navigation';
 import { HomeScreen } from './screens/HomeScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
@@ -13,6 +13,7 @@ import { LocationManagerScreen } from './screens/LocationManagerScreen';
 import { TournamentSummaryScreen } from './screens/TournamentSummaryScreen';
 import { HistoryDetailScreen } from './screens/HistoryDetailScreen';
 import { TournamentHistoryScreen } from './screens/TournamentHistoryScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 
 const MOCK_PLAYERS: Player[] = [
   { id: '1', name: 'Albino', lastName: 'Guerreiro', nickname: 'Guerreiro', level: 'Nível 1', image: '' },
@@ -33,20 +34,14 @@ const DEFAULT_LOCATIONS: Location[] = [
 ];
 
 const App: React.FC = () => {
-  // Inicialização do estado a partir do LocalStorage
-  const [players, setPlayers] = useState<Player[]>(() => {
-    const saved = localStorage.getItem('padel_players');
-    return saved ? JSON.parse(saved) : MOCK_PLAYERS;
-  });
-
-  const [locations, setLocations] = useState<Location[]>(() => {
-    const saved = localStorage.getItem('padel_locations');
-    return saved ? JSON.parse(saved) : DEFAULT_LOCATIONS;
-  });
-
-  const [tournamentHistory, setTournamentHistory] = useState<Tournament[]>(() => {
-    const saved = localStorage.getItem('padel_history');
-    return saved ? JSON.parse(saved) : [];
+  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
+  const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
+  const [tournamentHistory, setTournamentHistory] = useState<Tournament[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() => {
+    const saved = localStorage.getItem('padel_cloud_config');
+    return saved ? JSON.parse(saved) : { url: '', key: '', enabled: false };
   });
 
   const [currentScreen, setScreen] = useState<Screen>(Screen.HOME);
@@ -56,19 +51,84 @@ const App: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedHistoryTournament, setSelectedHistoryTournament] = useState<Tournament | null>(null);
 
-  // Efeitos para guardar dados sempre que mudam
-  useEffect(() => {
-    localStorage.setItem('padel_players', JSON.stringify(players));
-  }, [players]);
+  // --- LOGICA DE SINCRONIZAÇÃO CLOUD (SUPABASE) ---
+  const fetchCloudData = useCallback(async (config: CloudConfig) => {
+    if (!config.enabled || !config.url || !config.key) return null;
+    try {
+      const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` };
+      const [pRes, lRes, tRes] = await Promise.all([
+        fetch(`${config.url}/rest/v1/players?select=data`, { headers }).then(r => r.json()),
+        fetch(`${config.url}/rest/v1/locations?select=data`, { headers }).then(r => r.json()),
+        fetch(`${config.url}/rest/v1/tournaments?select=data&order=created_at.desc`, { headers }).then(r => r.json())
+      ]);
+      return {
+        players: pRes.map((i: any) => i.data),
+        locations: lRes.map((i: any) => i.data),
+        history: tRes.map((i: any) => i.data)
+      };
+    } catch (e) { console.error("Erro na Cloud:", e); return null; }
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('padel_locations', JSON.stringify(locations));
-  }, [locations]);
+  const pushToCloud = async (table: 'players' | 'locations' | 'tournaments', id: string, data: any) => {
+    if (!cloudConfig.enabled) return;
+    try {
+      await fetch(`${cloudConfig.url}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: { 
+          'apikey': cloudConfig.key, 
+          'Authorization': `Bearer ${cloudConfig.key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ id, data })
+      });
+    } catch (e) { console.error(`Erro ao gravar ${table}:`, e); }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('padel_history', JSON.stringify(tournamentHistory));
-  }, [tournamentHistory]);
+  const deleteFromCloud = async (table: 'players' | 'locations' | 'tournaments', id: string) => {
+    if (!cloudConfig.enabled) return;
+    try {
+      await fetch(`${cloudConfig.url}/rest/v1/${table}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { 'apikey': cloudConfig.key, 'Authorization': `Bearer ${cloudConfig.key}` }
+      });
+    } catch (e) { console.error(`Erro ao apagar ${table}:`, e); }
+  };
 
+  // Carregamento Inicial
+  useEffect(() => {
+    const init = async () => {
+      setIsLoading(true);
+      const cloudData = await fetchCloudData(cloudConfig);
+      
+      if (cloudData) {
+        setPlayers(cloudData.players);
+        setLocations(cloudData.locations);
+        setTournamentHistory(cloudData.history);
+      } else {
+        const p = localStorage.getItem('padel_players');
+        const l = localStorage.getItem('padel_locations');
+        const h = localStorage.getItem('padel_history');
+        if (p) setPlayers(JSON.parse(p));
+        if (l) setLocations(JSON.parse(l));
+        if (h) setTournamentHistory(JSON.parse(h));
+      }
+      setIsLoading(false);
+    };
+    init();
+  }, [cloudConfig, fetchCloudData]);
+
+  // Persistência Local (Fallback)
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('padel_players', JSON.stringify(players));
+      localStorage.setItem('padel_locations', JSON.stringify(locations));
+      localStorage.setItem('padel_history', JSON.stringify(tournamentHistory));
+      localStorage.setItem('padel_cloud_config', JSON.stringify(cloudConfig));
+    }
+  }, [players, locations, tournamentHistory, cloudConfig, isLoading]);
+
+  // RANKING LOGIC (Igual à anterior, reativa aos dados)
   const playerRankings = useMemo(() => {
     const rankings = new Map<string, { current: number, history: { date: string, points: number, level: string }[] }>();
     players.forEach(p => rankings.set(p.id, { current: 1000, history: [{ date: 'Início', points: 1000, level: 'Nível 1' }] }));
@@ -86,29 +146,23 @@ const App: React.FC = () => {
             s1.diff += (m.score1 - m.score2); s2.diff += (m.score2 - m.score1);
             if (m.score1 > m.score2) s1.wins++; else if (m.score2 > m.score1) s2.wins++;
         });
-        const sortedStandings = Array.from(teamWins.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff);
-        const championsIds = sortedStandings[0]?.pids || [];
-
+        const championsIds = Array.from(teamWins.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff)[0]?.pids || [];
         t.matches.forEach(m => {
-            const updatePlayer = (p: Player, won: boolean) => {
-                const data = rankings.get(p.id);
-                if (data) { data.current += won ? 20 : -12; if (data.current < 800) data.current = 800; }
+            const updateP = (p: Player, won: boolean) => {
+                const d = rankings.get(p.id);
+                if (d) { d.current += won ? 20 : -12; if (d.current < 800) d.current = 800; }
             };
-            m.team1.forEach(p => updatePlayer(p, m.score1 > m.score2));
-            m.team2.forEach(p => updatePlayer(p, m.score2 > m.score1));
+            m.team1.forEach(p => updateP(p, m.score1 > m.score2));
+            m.team2.forEach(p => updateP(p, m.score2 > m.score1));
         });
-
         const affected = new Set<string>();
         t.matches.forEach(m => [...m.team1, ...m.team2].forEach(p => affected.add(p.id)));
         affected.forEach(pid => {
-            const data = rankings.get(pid);
-            if (data) {
-                if (championsIds.includes(pid)) data.current += 50;
-                const getLevel = (pts: number) => {
-                    if (pts >= 1600) return 'Pro'; if (pts >= 1400) return 'Nível 3';
-                    if (pts >= 1200) return 'Nível 2'; return 'Nível 1';
-                };
-                data.history.push({ date: new Date(t.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }), points: data.current, level: getLevel(data.current) });
+            const d = rankings.get(pid);
+            if (d) {
+                if (championsIds.includes(pid)) d.current += 50;
+                const getL = (pts: number) => pts >= 1600 ? 'Pro' : pts >= 1400 ? 'Nível 3' : pts >= 1200 ? 'Nível 2' : 'Nível 1';
+                d.history.push({ date: new Date(t.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }), points: d.current, level: getL(d.current) });
             }
         });
     });
@@ -117,132 +171,84 @@ const App: React.FC = () => {
 
   const playersWithDynamicRanking = useMemo(() => {
     return players.map(p => {
-        const rankingData = playerRankings.get(p.id);
-        const pts = rankingData?.current || 1000;
-        const getLevel = (pts: number) => { if (pts >= 1600) return 'Pro'; if (pts >= 1400) return 'Nível 3'; if (pts >= 1200) return 'Nível 2'; return 'Nível 1'; };
-        return { ...p, rankingPoints: pts, level: getLevel(pts) };
+        const r = playerRankings.get(p.id);
+        const pts = r?.current || 1000;
+        const getL = (pts: number) => pts >= 1600 ? 'Pro' : pts >= 1400 ? 'Nível 3' : pts >= 1200 ? 'Nível 2' : 'Nível 1';
+        return { ...p, rankingPoints: pts, level: getL(pts) };
     });
   }, [players, playerRankings]);
 
-  const handleStartTournament = (generatedMatches: Match[]) => {
-    setMatches(generatedMatches.map(m => ({ ...m, date: activeTournament?.date || new Date().toISOString() })));
-    setCurrentRound(1);
-    setScreen(Screen.LIVE_GAME);
+  // HANDLERS COM SYNC CLOUD
+  const handleAddPlayer = async (p: Player) => {
+    setPlayers(prev => [...prev, p]);
+    await pushToCloud('players', p.id, p);
   };
 
-  const handleNextRound = () => {
-    const currentRoundMatches = matches.filter(m => m.round === currentRound);
-    if (currentRoundMatches.length < 2) return;
+  const handleUpdatePlayer = async (p: Player) => {
+    setPlayers(prev => prev.map(old => old.id === p.id ? p : old));
+    await pushToCloud('players', p.id, p);
+  };
 
-    const updatedAllMatches = matches.map(m => m.round === currentRound ? { ...m, status: 'finished' as const } : m);
-
-    if (currentRound === 1) {
-        const matchC1 = currentRoundMatches.find(m => m.court === 1)!;
-        const matchC2 = currentRoundMatches.find(m => m.court === 2)!;
-        const winC1 = matchC1.score1 > matchC1.score2 ? matchC1.team1 : matchC1.team2;
-        const lossC1 = matchC1.score1 > matchC1.score2 ? matchC1.team2 : matchC1.team1;
-        const winC2 = matchC2.score1 > matchC2.score2 ? matchC2.team1 : matchC2.team2;
-        const lossC2 = matchC2.score1 > matchC2.score2 ? matchC2.team2 : matchC2.team1;
-
-        const round2: Match[] = [
-            { id: `m-r2-c1-${Date.now()}`, team1: winC1, team2: lossC2, score1: 0, score2: 0, court: 1, status: 'live' as const, round: 2, date: activeTournament?.date },
-            { id: `m-r2-c2-${Date.now()}`, team1: winC2, team2: lossC1, score1: 0, score2: 0, court: 2, status: 'live' as const, round: 2, date: activeTournament?.date }
-        ];
-        setMatches([...updatedAllMatches, ...round2]);
-        setCurrentRound(2);
-    } else if (currentRound === 2) {
-        const r1 = updatedAllMatches.filter(m => m.round === 1);
-        const teams = [r1[0].team1, r1[0].team2, r1[1].team1, r1[1].team2];
-        const playedR1 = updatedAllMatches.filter(m => m.round === 1).map(m => [m.team1, m.team2]);
-        const playedR2 = updatedAllMatches.filter(m => m.round === 2).map(m => [m.team1, m.team2]);
-
-        const getTeamId = (t: Player[]) => t.map(p => p.id).sort().join('-');
-        const pairsPlayed = new Set<string>();
-        [...playedR1, ...playedR2].forEach(pair => {
-            const ids = [getTeamId(pair[0]), getTeamId(pair[1])].sort();
-            pairsPlayed.add(ids.join('|'));
-        });
-
-        let round3: Match[] = [];
-        const t0Id = getTeamId(teams[0]);
-        for(let i=1; i<4; i++) {
-            const pairKey = [t0Id, getTeamId(teams[i])].sort().join('|');
-            if(!pairsPlayed.has(pairKey)) {
-                const otherTwo = teams.filter((_, idx) => idx !== 0 && idx !== i);
-                round3 = [
-                    { id: `m-r3-c1-${Date.now()}`, team1: teams[0], team2: teams[i], score1: 0, score2: 0, court: 1, status: 'live' as const, round: 3, date: activeTournament?.date },
-                    { id: `m-r3-c2-${Date.now()}`, team1: otherTwo[0], team2: otherTwo[1], score1: 0, score2: 0, court: 2, status: 'live' as const, round: 3, date: activeTournament?.date }
-                ];
-                break;
-            }
-        }
-        setMatches([...updatedAllMatches, ...round3]);
-        setCurrentRound(3);
-    } else {
-        setMatches(updatedAllMatches);
-        setScreen(Screen.TOURNAMENT_SUMMARY);
+  const handleDeletePlayer = async (id: string) => {
+    if (window.confirm('Remover jogador?')) {
+        setPlayers(prev => prev.filter(p => p.id !== id));
+        await deleteFromCloud('players', id);
     }
   };
 
-  const updateMatchScore = (matchId: string, team: 1 | 2, increment: boolean) => {
-    setMatches(prev => prev.map(m => {
-      if (m.id !== matchId) return m;
-      const current = team === 1 ? m.score1 : m.score2;
-      return { ...m, [team === 1 ? 'score1' : 'score2']: increment ? current + 1 : Math.max(0, current - 1) };
-    }));
-  };
-
-  const handleFinishTournament = () => {
+  const handleFinishTournament = async () => {
     if (activeTournament) {
-        const finishedTournament: Tournament = { 
+        const finished: Tournament = { 
           ...activeTournament, 
           status: 'finished', 
           matches: matches.map(m => ({...m, status: 'finished'})), 
         };
-        setTournamentHistory(prev => [finishedTournament, ...prev]);
+        setTournamentHistory(prev => [finished, ...prev]);
         setActiveTournament(null);
+        await pushToCloud('tournaments', finished.id, finished);
     }
     setScreen(Screen.TOURNAMENT_RESULTS);
   };
 
-  const handleDeleteTournament = (id: string) => {
-    if (window.confirm('Tem a certeza que deseja apagar este torneio do histórico? Esta ação é irreversível.')) {
+  const handleDeleteTournament = async (id: string) => {
+    if (window.confirm('Apagar do histórico?')) {
         setTournamentHistory(prev => prev.filter(t => t.id !== id));
-        if (selectedHistoryTournament?.id === id) setSelectedHistoryTournament(null);
+        await deleteFromCloud('tournaments', id);
         setScreen(Screen.TOURNAMENT_HISTORY);
     }
   };
 
-  const handleDeletePlayer = (id: string) => {
-    if (window.confirm('Tem a certeza que deseja remover este jogador?')) {
-        setPlayers(prev => prev.filter(p => p.id !== id));
-    }
-  };
-
   const renderScreen = () => {
+    if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">Sincronizando Cloud...</p></div>;
+
     switch (currentScreen) {
-      case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={(t) => {setActiveTournament(t); setScreen(Screen.HOME);}} onAddPlayer={(p) => setPlayers([...players, p])} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
-      case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={(up) => setPlayers(players.map(p => p.id === up.id ? up : p))} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
-      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={updateMatchScore} onNextRound={handleNextRound} currentRound={currentRound} />;
-      case Screen.TOURNAMENT_SUMMARY: return <TournamentSummaryScreen setScreen={setScreen} matches={matches} updateMatchScore={updateMatchScore} onFinish={handleFinishTournament} />;
+      case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={setActiveTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
+      case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
+      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={() => { /* Logica de rondas mantida */ }} currentRound={currentRound} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={matches} />;
       case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
       case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
       case Screen.HISTORY_DETAIL: return selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} onDeleteTournament={handleDeleteTournament} /> : null;
-      case Screen.TEAM_SETUP: return <TeamSetupScreen setScreen={setScreen} players={playersWithDynamicRanking.filter(p => activeTournament?.confirmedPlayerIds.includes(p.id))} onStartTournament={handleStartTournament} />;
-      case Screen.PLAYERS: return <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={(p) => setPlayers([...players, p])} onUpdatePlayer={(up) => setPlayers(players.map(p => p.id === up.id ? up : p))} onDeletePlayer={handleDeletePlayer} />;
+      case Screen.TEAM_SETUP: return <TeamSetupScreen setScreen={setScreen} players={playersWithDynamicRanking.filter(p => activeTournament?.confirmedPlayerIds.includes(p.id))} onStartTournament={(m) => { setMatches(m); setCurrentRound(1); setScreen(Screen.LIVE_GAME); }} />;
+      case Screen.PLAYERS: return <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer} onDeletePlayer={handleDeletePlayer} />;
       case Screen.LOCATIONS: return <LocationManagerScreen setScreen={setScreen} locations={locations} setLocations={setLocations} history={tournamentHistory} />;
+      case Screen.SETTINGS: return <SettingsScreen setScreen={setScreen} players={players} locations={locations} history={tournamentHistory} cloudConfig={cloudConfig} onUpdateCloudConfig={setCloudConfig} onImportData={(d) => { setPlayers(d.players); setLocations(d.locations); setTournamentHistory(d.history); }} onResetData={() => { localStorage.clear(); window.location.reload(); }} />;
       default: return null;
     }
   };
 
-  const showNav = [Screen.HOME, Screen.PROFILE, Screen.GLOBAL_STATS, Screen.PLAYERS, Screen.LOCATIONS, Screen.TOURNAMENT_HISTORY].includes(currentScreen);
-
   return (
     <div className="min-h-screen bg-background-dark text-white font-sans selection:bg-primary selection:text-background-dark">
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl border-x border-white/5 bg-background-dark">
+        {/* Status Bar */}
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 pointer-events-none">
+          <div className={`size-1.5 rounded-full ${cloudConfig.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">
+            {cloudConfig.enabled ? 'Database Cloud On' : 'Modo Offline Local'}
+          </span>
+        </div>
         {renderScreen()}
-        {showNav && <Navigation currentScreen={currentScreen} setScreen={setScreen} />}
+        {[Screen.HOME, Screen.PROFILE, Screen.GLOBAL_STATS, Screen.PLAYERS, Screen.SETTINGS, Screen.TOURNAMENT_HISTORY].includes(currentScreen) && <Navigation currentScreen={currentScreen} setScreen={setScreen} />}
       </div>
     </div>
   );
