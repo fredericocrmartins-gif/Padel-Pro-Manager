@@ -11,6 +11,7 @@ interface HomeScreenProps {
   onCreateTournament: (tournament: Tournament) => void;
   onAddPlayer: (player: Player) => void;
   onUpdateTournament: (tournament: Tournament) => void;
+  onCancelTournament: () => void;
   history: Tournament[];
 }
 
@@ -22,6 +23,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onCreateTournament,
     onAddPlayer,
     onUpdateTournament,
+    onCancelTournament,
     history
 }) => {
   const [isCreating, setIsCreating] = useState(false);
@@ -174,6 +176,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const isReady = confirmedCount === 8;
     const confirmedPlayers = activeTournament.confirmedPlayerIds.map(id => players.find(p => p.id === id)).filter((p): p is Player => p !== undefined);
 
+    const isLive = activeTournament.status === 'live';
+
     return (
         <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in relative">
             {isManagingPlayers && (
@@ -213,19 +217,62 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </div>
                 </div>
             )}
-            <header><h1 className="text-3xl font-bold tracking-tight">Dashboard</h1><p className="text-slate-400">Próxima sessão confirmada.</p></header>
-            <section className={`relative overflow-hidden rounded-3xl bg-card-dark shadow-xl ring-1 transition-all duration-700 ${isReady ? 'ring-emerald-500/50 scale-[1.01]' : 'ring-white/10'}`}>
+            <header>
+                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                <p className="text-slate-400">{isLive ? 'Torneio em andamento!' : 'Próxima sessão confirmada.'}</p>
+            </header>
+            
+            <section className={`relative overflow-hidden rounded-3xl bg-card-dark shadow-xl ring-1 transition-all duration-700 ${isLive ? 'ring-primary shadow-primary/20' : isReady ? 'ring-emerald-500/50 scale-[1.01]' : 'ring-white/10'}`}>
+                {isLive && <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>}
                 <div className="p-5 relative z-10">
                     <div className="flex items-start justify-between mb-4">
-                        <div><div className="flex items-center gap-2 mb-2"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isReady ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-primary/20 text-primary border-primary/30'}`}>{isReady ? 'QUÓRUM ATINGIDO' : 'A AGUARDAR CONFIRMAÇÕES'}</span></div><h3 className="text-xl font-bold text-white mb-1">{locName}</h3><p className="text-slate-400 text-xs flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">calendar_today</span>{new Date(activeTournament.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' })} • {activeTournament.time}</p></div>
-                        <div className={`p-2.5 rounded-xl border ${isReady ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-white/5 border-white/10 text-primary'}`}><span className="material-symbols-outlined text-2xl">sports_tennis</span></div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isLive ? 'bg-primary text-background-dark border-primary' : isReady ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-white/10 text-gray-400 border-white/20'}`}>
+                                    {isLive ? 'A DECORRER' : isReady ? 'QUÓRUM ATINGIDO' : 'A AGUARDAR'}
+                                </span>
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-1">{locName}</h3>
+                            <p className="text-slate-400 text-xs flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-sm">calendar_today</span>
+                                {new Date(activeTournament.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' })} • {activeTournament.time}
+                            </p>
+                        </div>
+                        <div className={`p-2.5 rounded-xl border ${isLive ? 'bg-primary text-background-dark border-primary shadow-lg shadow-primary/30' : isReady ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-white/5 border-white/10 text-primary'}`}>
+                            <span className="material-symbols-outlined text-2xl">{isLive ? 'sports_baseball' : 'sports_tennis'}</span>
+                        </div>
                     </div>
-                    <div className="space-y-2"><div className="flex justify-between items-end"><span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Jogadores ({confirmedCount}/8)</span><span className={`text-xs font-bold font-mono ${isReady ? 'text-emerald-400' : 'text-white'}`}>{isReady ? 'TUDO PRONTO' : `FALTAM ${8 - confirmedCount}`}</span></div><div className="h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 p-0.5"><div style={{ width: `${Math.min(100, (confirmedCount / 8) * 100)}%` }} className={`h-full transition-all duration-1000 rounded-full ${isReady ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-primary'}`}></div></div></div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-end">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Jogadores ({confirmedCount}/8)</span>
+                            <span className={`text-xs font-bold font-mono ${isReady ? 'text-emerald-400' : 'text-white'}`}>
+                                {isReady ? 'TUDO PRONTO' : `FALTAM ${8 - confirmedCount}`}
+                            </span>
+                        </div>
+                        <div className="h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 p-0.5">
+                            <div style={{ width: `${Math.min(100, (confirmedCount / 8) * 100)}%` }} className={`h-full transition-all duration-1000 rounded-full ${isReady ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-primary'}`}></div>
+                        </div>
+                    </div>
                 </div>
             </section>
-            <button onClick={() => setScreen(Screen.TEAM_SETUP)} disabled={!isReady} className={`w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all ${isReady ? 'bg-emerald-500 text-background-dark shadow-xl scale-[1.02] active:scale-100' : 'bg-white/5 text-gray-600 border border-white/5 opacity-50 cursor-not-allowed'}`}><span className="material-symbols-outlined">casino</span><span>Realizar Sorteio de Equipas</span></button>
+            
+            {isLive ? (
+                <button onClick={() => setScreen(Screen.LIVE_GAME)} className="w-full bg-primary text-background-dark font-black py-5 px-6 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-primary/20 animate-bounce-subtle">
+                    <span className="material-symbols-outlined">scoreboard</span>
+                    <span>IR PARA JOGO (EM DIRETO)</span>
+                </button>
+            ) : (
+                <button onClick={() => setScreen(Screen.TEAM_SETUP)} disabled={!isReady} className={`w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all ${isReady ? 'bg-emerald-500 text-background-dark shadow-xl scale-[1.02] active:scale-100' : 'bg-white/5 text-gray-600 border border-white/5 opacity-50 cursor-not-allowed'}`}>
+                    <span className="material-symbols-outlined">casino</span>
+                    <span>Realizar Sorteio de Equipas</span>
+                </button>
+            )}
+
             <section className="flex flex-col gap-4">
-                <div className="flex items-center justify-between px-1"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Confirmados</h3><button onClick={() => setIsManagingPlayers(true)} className="text-xs font-bold text-primary bg-primary/10 px-4 py-2 rounded-full">Gerir Todos</button></div>
+                <div className="flex items-center justify-between px-1">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Confirmados</h3>
+                    <button onClick={() => setIsManagingPlayers(true)} className="text-xs font-bold text-primary bg-primary/10 px-4 py-2 rounded-full">Gerir Todos</button>
+                </div>
                 <div className="grid grid-cols-4 gap-4">
                     {confirmedPlayers.map((p) => (
                         <div key={p.id} className="flex flex-col items-center gap-2 animate-fade-in-up">
@@ -241,7 +288,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     ))}
                 </div>
             </section>
-            <button onClick={() => onUpdateTournament(null as any)} className="text-[10px] font-bold text-red-500/40 hover:text-red-500 text-center mt-6">Remover agendamento atual</button>
+            
+            <button onClick={onCancelTournament} className="text-[10px] font-bold text-red-500/60 hover:text-red-500 text-center mt-6 uppercase tracking-widest border border-red-500/10 hover:border-red-500/30 py-3 rounded-xl transition-all">
+                Cancelar e Remover Agendamento
+            </button>
         </div>
     );
   }

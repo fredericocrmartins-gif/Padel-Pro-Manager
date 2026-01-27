@@ -62,6 +62,6 @@ export interface Tournament {
   duration: number;
   locationId: string;
   confirmedPlayerIds: string[];
-  status: 'scheduled' | 'live' | 'finished';
+  status: 'scheduled' | 'live' | 'finished' | 'cancelled';
   matches?: Match[];
 }

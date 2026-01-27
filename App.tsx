@@ -48,10 +48,9 @@ const App: React.FC = () => {
       ]);
       if (!Array.isArray(pRes)) return null;
       return {
-        // Se a cloud estiver vazia, retorna listas vazias
         players: pRes.length > 0 ? pRes.map((i: any) => i.data) : [],
         locations: lRes.length > 0 ? lRes.map((i: any) => i.data) : [],
-        history: tRes.map((i: any) => i.data)
+        tournaments: tRes.map((i: any) => i.data)
       };
     } catch (e) { return null; }
   }, []);
@@ -81,16 +80,47 @@ const App: React.FC = () => {
     const init = async () => {
       setIsLoading(true);
       const cloudData = await fetchCloudData(cloudConfig);
+      
+      let loadedPlayers: Player[] = [];
+      let loadedLocations: Location[] = [];
+      let allTournaments: Tournament[] = [];
+
       if (cloudData) {
-        setPlayers(cloudData.players); 
-        setLocations(cloudData.locations); 
-        setTournamentHistory(cloudData.history);
+        loadedPlayers = cloudData.players;
+        loadedLocations = cloudData.locations;
+        allTournaments = cloudData.tournaments;
       } else {
-        const p = localStorage.getItem('padel_players'), l = localStorage.getItem('padel_locations'), h = localStorage.getItem('padel_history');
-        if (p) setPlayers(JSON.parse(p)); 
-        if (l) setLocations(JSON.parse(l)); 
-        if (h) setTournamentHistory(JSON.parse(h));
+        const p = localStorage.getItem('padel_players');
+        const l = localStorage.getItem('padel_locations');
+        const h = localStorage.getItem('padel_history');
+        if (p) loadedPlayers = JSON.parse(p);
+        if (l) loadedLocations = JSON.parse(l);
+        if (h) allTournaments = JSON.parse(h); // Local storage stores all
       }
+
+      setPlayers(loadedPlayers);
+      setLocations(loadedLocations);
+
+      // Separar Lógica de Ativos vs Histórico
+      const active = allTournaments.find(t => t.status === 'scheduled' || t.status === 'live');
+      const history = allTournaments.filter(t => t.status === 'finished' || t.status === 'cancelled');
+
+      setTournamentHistory(history);
+
+      if (active) {
+        setActiveTournament(active);
+        // Se estiver LIVE, restaurar estado dos jogos
+        if (active.status === 'live' && active.matches && active.matches.length > 0) {
+           setMatches(active.matches);
+           const maxRound = Math.max(...active.matches.map(m => m.round));
+           // Se todos da ronda atual já terminaram, prepararia a próxima, mas simplificamos para a max existente
+           setCurrentRound(maxRound);
+        }
+      } else {
+        setActiveTournament(null);
+        setMatches([]);
+      }
+
       setIsLoading(false);
     };
     init();
@@ -100,15 +130,21 @@ const App: React.FC = () => {
     if (!isLoading) {
       localStorage.setItem('padel_players', JSON.stringify(players));
       localStorage.setItem('padel_locations', JSON.stringify(locations));
-      localStorage.setItem('padel_history', JSON.stringify(tournamentHistory));
+      // No LocalStorage guardamos tudo junto para simplificar, a separação é feita no init
+      const allTournaments = [...tournamentHistory];
+      if (activeTournament) allTournaments.push(activeTournament);
+      localStorage.setItem('padel_history', JSON.stringify(allTournaments));
       localStorage.setItem('padel_cloud_config', JSON.stringify(cloudConfig));
     }
-  }, [players, locations, tournamentHistory, cloudConfig, isLoading]);
+  }, [players, locations, tournamentHistory, activeTournament, cloudConfig, isLoading]);
 
   const playerRankings = useMemo(() => {
     const rankings = new Map<string, { current: number, history: { date: string, points: number, level: string }[] }>();
     players.forEach(p => rankings.set(p.id, { current: 1000, history: [{ date: 'Início', points: 1000, level: 'Nível 1' }] }));
-    const sortedHistory = [...tournamentHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Apenas contar torneios finalizados para ranking
+    const finishedTournaments = tournamentHistory.filter(t => t.status === 'finished');
+    const sortedHistory = [...finishedTournaments].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
     sortedHistory.forEach(t => {
         if (!t.matches) return;
         const teamWins = new Map<string, { wins: number, diff: number, pids: string[] }>();
@@ -151,7 +187,9 @@ const App: React.FC = () => {
     });
   }, [players, playerRankings]);
 
-  const handleNextRound = () => {
+  // --- Funções de Gestão de Rondas ---
+
+  const handleNextRound = async () => {
     const nextRoundNumber = currentRound + 1;
     if (nextRoundNumber > 3) {
       setScreen(Screen.TOURNAMENT_SUMMARY);
@@ -183,12 +221,56 @@ const App: React.FC = () => {
           { id: `m-r3-c2-${timestamp}`, team1: winner2, team2: loser1, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
         ];
       }
-      setMatches(prev => [...prev, ...nextMatches]);
+      
+      const updatedMatches = [...matches, ...nextMatches];
+      setMatches(updatedMatches);
       setCurrentRound(nextRoundNumber);
+
+      // Atualizar Cloud em tempo real
+      if (activeTournament) {
+         const updatedTournament = { ...activeTournament, matches: updatedMatches };
+         setActiveTournament(updatedTournament);
+         await pushToCloud('tournaments', updatedTournament.id, updatedTournament);
+      }
     }
   };
 
-  // --- Handlers para JOGADORES (Persistentes) ---
+  const updateMatchScore = async (id: string, team: 1 | 2, increment: boolean) => {
+    const updatedMatches = matches.map(m => m.id === id ? {
+      ...m, 
+      [team === 1 ? 'score1' : 'score2']: increment 
+        ? m[team === 1 ? 'score1' : 'score2'] + 1 
+        : Math.max(0, m[team === 1 ? 'score1' : 'score2'] - 1)
+    } : m);
+    
+    setMatches(updatedMatches);
+    
+    // Persistência em tempo real do Score
+    if (activeTournament) {
+        // Debounce simples poderia ser aplicado aqui para não spammar a API, mas para demo direto:
+        const updatedTournament = { ...activeTournament, matches: updatedMatches };
+        setActiveTournament(updatedTournament);
+        // Não fazemos await aqui para não bloquear a UI, deixamos ir em background
+        pushToCloud('tournaments', updatedTournament.id, updatedTournament);
+    }
+  };
+
+  const handleStartTournament = async (initialMatches: Match[]) => {
+      setMatches(initialMatches);
+      setCurrentRound(1);
+      if (activeTournament) {
+          const liveTournament: Tournament = { 
+              ...activeTournament, 
+              status: 'live', 
+              matches: initialMatches 
+          };
+          setActiveTournament(liveTournament);
+          await pushToCloud('tournaments', liveTournament.id, liveTournament);
+      }
+      setScreen(Screen.LIVE_GAME);
+  };
+
+  // --- CRUD Jogadores ---
   const handleAddPlayer = async (p: Player) => { 
     setPlayers(prev => [...prev, p]); 
     await pushToCloud('players', p.id, p); 
@@ -206,7 +288,7 @@ const App: React.FC = () => {
     } 
   };
 
-  // --- Handlers para LOCAIS (Persistentes) ---
+  // --- CRUD Locais ---
   const handleAddLocation = async (l: Location) => {
     setLocations(prev => [...prev, l]);
     await pushToCloud('locations', l.id, l);
@@ -222,18 +304,31 @@ const App: React.FC = () => {
     await deleteFromCloud('locations', id);
   };
 
-  // --- Handlers para TORNEIOS / AGENDAMENTOS (Persistentes) ---
+  // --- CRUD Torneios ---
   
   const handleCreateTournament = async (t: Tournament) => {
-      setActiveTournament(t);
-      // Guardar também no histórico como agendado/em curso para persistência
-      // Se quisermos que apareça apenas no dashboard, guardamos na tabela 'tournaments' com status 'scheduled'
-      await pushToCloud('tournaments', t.id, t);
+      // Define estado inicial explicitamente
+      const newT = { ...t, status: 'scheduled' as const };
+      setActiveTournament(newT);
+      await pushToCloud('tournaments', newT.id, newT);
   };
 
   const handleUpdateActiveTournament = async (t: Tournament) => {
       setActiveTournament(t);
       await pushToCloud('tournaments', t.id, t);
+  };
+
+  const handleCancelTournament = async () => {
+      if (activeTournament && window.confirm('Deseja cancelar este agendamento?')) {
+          const cancelledT = { ...activeTournament, status: 'cancelled' as const };
+          // Remove do ativo
+          setActiveTournament(null);
+          setMatches([]);
+          // Adiciona ao histórico como cancelado (para manter registo ou apenas apaga do ativo)
+          setTournamentHistory(prev => [cancelledT, ...prev]);
+          // Atualiza na cloud
+          await pushToCloud('tournaments', cancelledT.id, cancelledT);
+      }
   };
 
   const handleFinishTournament = async () => {
@@ -252,34 +347,25 @@ const App: React.FC = () => {
   };
 
   const handleDeleteTournament = async (id: string) => { 
-    if (window.confirm('Apagar do histórico?')) { 
+    if (window.confirm('Apagar do histórico permanentemente?')) { 
       setTournamentHistory(prev => prev.filter(t => t.id !== id)); 
       await deleteFromCloud('tournaments', id); 
       setScreen(Screen.TOURNAMENT_HISTORY); 
     } 
   };
 
-  const updateMatchScore = (id: string, team: 1 | 2, increment: boolean) => {
-    setMatches(prev => prev.map(m => m.id === id ? {
-      ...m, 
-      [team === 1 ? 'score1' : 'score2']: increment 
-        ? m[team === 1 ? 'score1' : 'score2'] + 1 
-        : Math.max(0, m[team === 1 ? 'score1' : 'score2'] - 1)
-    } : m));
-  };
-
   const renderScreen = () => {
     if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">Sincronizando Cloud...</p></div>;
     switch (currentScreen) {
-      case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} history={tournamentHistory} />;
-      case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
+      case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} onCancelTournament={handleCancelTournament} history={tournamentHistory.filter(t => t.status === 'finished')} />;
+      case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory.filter(t => t.status === 'finished')} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
       case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={updateMatchScore} onNextRound={handleNextRound} currentRound={currentRound} />;
       case Screen.TOURNAMENT_SUMMARY: return <TournamentSummaryScreen setScreen={setScreen} matches={matches} updateMatchScore={updateMatchScore} onFinish={handleFinishTournament} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={tournamentHistory[0]?.matches || []} />;
-      case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
+      case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory.filter(t => t.status === 'finished')} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
       case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
       case Screen.HISTORY_DETAIL: return selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} onDeleteTournament={handleDeleteTournament} /> : null;
-      case Screen.TEAM_SETUP: return <TeamSetupScreen setScreen={setScreen} players={playersWithDynamicRanking.filter(p => activeTournament?.confirmedPlayerIds.includes(p.id))} onStartTournament={(m) => { setMatches(m); setCurrentRound(1); setScreen(Screen.LIVE_GAME); }} />;
+      case Screen.TEAM_SETUP: return <TeamSetupScreen setScreen={setScreen} players={playersWithDynamicRanking.filter(p => activeTournament?.confirmedPlayerIds.includes(p.id))} onStartTournament={handleStartTournament} />;
       case Screen.PLAYERS: return <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer} onDeletePlayer={handleDeletePlayer} />;
       case Screen.LOCATIONS: return <LocationManagerScreen setScreen={setScreen} locations={locations} onAddLocation={handleAddLocation} onUpdateLocation={handleUpdateLocation} onDeleteLocation={handleDeleteLocation} history={tournamentHistory} />;
       case Screen.SETTINGS: return <SettingsScreen setScreen={setScreen} players={players} locations={locations} history={tournamentHistory} cloudConfig={cloudConfig} onUpdateCloudConfig={setCloudConfig} onImportData={(d) => { setPlayers(d.players); setLocations(d.locations); setTournamentHistory(d.history); }} onResetData={() => { localStorage.clear(); window.location.reload(); }} />;
