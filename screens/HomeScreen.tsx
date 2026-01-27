@@ -286,7 +286,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
                     {/* Lista com Scroll - Otimizada para Mobile (3 Colunas) */}
                     <div className="flex-1 overflow-y-auto p-4 hide-scrollbar bg-gradient-to-b from-transparent to-black/20">
-                        <div className="grid grid-cols-3 gap-3 pb-24">
+                        <div className="grid grid-cols-3 gap-3 pb-48">
                             {players.filter(p => (p.nickname || p.name).toLowerCase().includes(playerSearchTerm.toLowerCase())).map(p => {
                                 const isConfirmed = activeTournament.confirmedPlayerIds.includes(p.id);
                                 return (
@@ -318,7 +318,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </div>
 
                     {/* Footer Fixo - Sempre visível mesmo com teclado */}
-                    <div className="shrink-0 p-4 bg-background-dark border-t border-white/10 pb-8 safe-area-bottom z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
+                    <div className="shrink-0 p-4 bg-background-dark border-t border-white/10 pb-28 safe-area-bottom z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
                          {isQuorumReached ? (
                              <button onClick={handleCloseRoster} className="w-full bg-emerald-500 text-background-dark font-black py-4 rounded-2xl shadow-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
                                 <span className="material-symbols-outlined">lock</span>
