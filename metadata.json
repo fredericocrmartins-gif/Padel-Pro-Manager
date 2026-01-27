@@ -1,0 +1,5 @@
+{
+  "name": "Padel Pro Manager",
+  "description": "A comprehensive Padel tournament management application featuring player profiles, live scoring, team generation, and statistical reporting.",
+  "requestFramePermissions": []
+}
