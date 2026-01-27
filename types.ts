@@ -63,5 +63,6 @@ export interface Tournament {
   locationId: string;
   confirmedPlayerIds: string[];
   status: 'scheduled' | 'live' | 'finished' | 'cancelled';
+  rosterClosed?: boolean; // Novo campo para fechar a convocatória antes do sorteio
   matches?: Match[];
 }

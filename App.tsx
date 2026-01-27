@@ -123,7 +123,7 @@ const App: React.FC = () => {
       if (h) allTournaments = JSON.parse(h);
     }
 
-    // Atualiza estados apenas se houver mudanças (React faz shallow compare, mas arrays novos triggeram sempre, então aceitamos o update)
+    // Atualiza estados
     setPlayers(loadedPlayers);
     setLocations(loadedLocations);
 
@@ -133,12 +133,10 @@ const App: React.FC = () => {
 
     setTournamentHistory(history);
 
-    // Lógica vital para sincronização multi-dispositivo
+    // Lógica vital para sincronização
     if (active) {
        setActiveTournament(prev => {
-           // Se o torneio que veio da cloud for diferente do que temos em memória, atualizamos a memória
            if (isTournamentDifferent(prev, active)) {
-               // Se o torneio tem jogos (live), atualizamos também o estado dos jogos
                if (active.matches && active.matches.length > 0) {
                    setMatches(active.matches);
                    const maxRound = Math.max(...active.matches.map(m => m.round));
@@ -154,7 +152,7 @@ const App: React.FC = () => {
     }
   }, [cloudConfig, fetchCloudData]);
 
-  // Initial Load
+  // Initial Load (apenas uma vez)
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
@@ -164,18 +162,8 @@ const App: React.FC = () => {
     init();
   }, [refreshAllData]);
 
-  // AUTO-SYNC / POLLING: Verifica alterações na cloud a cada 5 segundos
-  useEffect(() => {
-      if (!cloudConfig.enabled) return;
-      
-      const intervalId = setInterval(() => {
-          // Chamamos o refresh em background sem ativar o estado isLoading para não bloquear a UI
-          refreshAllData();
-      }, 5000); // 5 segundos
-
-      return () => clearInterval(intervalId);
-  }, [cloudConfig, refreshAllData]);
-
+  // REMOVIDO: useEffect com setInterval para polling.
+  // A atualização agora acontece apenas via refreshAllData (chamado no PullToRefresh ou init).
 
   // Persistence local storage (Backup local)
   useEffect(() => {
@@ -240,12 +228,9 @@ const App: React.FC = () => {
   // --- Handlers ---
 
   const handleCreateTournament = async (t: Tournament) => {
-      const newT = { ...t, status: 'scheduled' as const };
+      const newT = { ...t, status: 'scheduled' as const, rosterClosed: false };
       setActiveTournament(newT);
-      // Push imediato para a Cloud para que outros dispositivos vejam
       await pushToCloud('tournaments', newT.id, newT);
-      // Forçar refresh para garantir consistência
-      refreshAllData();
   };
 
   const handleUpdateActiveTournament = async (t: Tournament) => {
@@ -321,7 +306,6 @@ const App: React.FC = () => {
     if (activeTournament) {
         const updatedTournament = { ...activeTournament, matches: updatedMatches };
         setActiveTournament(updatedTournament);
-        // Não fazemos await aqui para não bloquear a UI rápida do score, o polling eventualmente garante consistência se falhar
         pushToCloud('tournaments', updatedTournament.id, updatedTournament);
     }
   };
@@ -341,7 +325,7 @@ const App: React.FC = () => {
       setScreen(Screen.LIVE_GAME);
   };
 
-  // ... Restantes handlers de CRUD (Jogadores, Locais)
+  // ... Restantes handlers de CRUD
   const handleAddPlayer = async (p: Player) => { 
     setPlayers(prev => [...prev, p]); 
     await pushToCloud('players', p.id, p); 
@@ -429,7 +413,7 @@ const App: React.FC = () => {
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl border-x border-white/5 bg-background-dark">
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 pointer-events-none">
           <div className={`size-1.5 rounded-full ${cloudConfig.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Live Cloud Sync' : 'Offline'}</span>
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Cloud Enabled' : 'Offline'}</span>
         </div>
         
         {renderScreen()}

@@ -93,6 +93,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         level: 'Nível 3',
         image: '' 
     };
+    // Adiciona o jogador à base de dados global e atualiza o torneio imediatamente
     onAddPlayer(newPlayer);
     if (activeTournament) {
         onUpdateTournament({
@@ -114,10 +115,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         duration,
         locationId,
         confirmedPlayerIds: selectedPlayers,
-        status: 'scheduled'
+        status: 'scheduled',
+        rosterClosed: false
     };
     onCreateTournament(newTournament);
     setIsCreating(false);
+  };
+
+  const handleCloseRoster = () => {
+    if (!activeTournament) return;
+    if (activeTournament.confirmedPlayerIds.length !== 8) {
+        alert("São necessários exatamente 8 jogadores para fechar a convocatória.");
+        return;
+    }
+    if (confirm("Fechar convocatória e preparar sorteio?")) {
+        onUpdateTournament({ ...activeTournament, rosterClosed: true });
+        setIsManagingPlayers(false);
+    }
+  };
+
+  const handleReopenRoster = () => {
+      if (!activeTournament) return;
+      if (confirm("Reabrir convocatória para alterações?")) {
+          onUpdateTournament({ ...activeTournament, rosterClosed: false });
+      }
   };
 
   const getLocationName = (id: string) => locations.find(l => l.id === id)?.name || 'Local Desconhecido';
@@ -173,10 +194,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   if (activeTournament) {
     const locName = getLocationName(activeTournament.locationId);
     const confirmedCount = activeTournament.confirmedPlayerIds.length;
-    const isReady = confirmedCount === 8;
     const confirmedPlayers = activeTournament.confirmedPlayerIds.map(id => players.find(p => p.id === id)).filter((p): p is Player => p !== undefined);
 
     const isLive = activeTournament.status === 'live';
+    const isRosterClosed = activeTournament.rosterClosed;
+    const isQuorumReached = confirmedCount === 8;
 
     return (
         <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in relative">
@@ -198,7 +220,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             <button onClick={() => setIsAddingGuest(true)} className="bg-primary/20 text-primary border border-primary/30 px-4 rounded-xl flex items-center justify-center"><span className="material-symbols-outlined text-sm">person_add</span></button>
                         </div>
                     )}
-                    <div className="grid grid-cols-4 gap-3 overflow-y-auto pb-24 hide-scrollbar">
+                    <div className="grid grid-cols-4 gap-3 overflow-y-auto pb-32 hide-scrollbar">
                         {players.filter(p => (p.nickname || p.name).toLowerCase().includes(playerSearchTerm.toLowerCase())).map(p => {
                             const isConfirmed = activeTournament.confirmedPlayerIds.includes(p.id);
                             return (
@@ -212,24 +234,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             );
                         })}
                     </div>
-                    <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto">
-                        <button onClick={() => setIsManagingPlayers(false)} className={`w-full font-bold py-4 rounded-2xl shadow-xl transition-all ${isReady ? 'bg-emerald-500 text-background-dark' : 'bg-primary text-background-dark'}`}>Concluído ({confirmedCount}/8)</button>
+                    <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto space-y-2">
+                        {isQuorumReached ? (
+                             <button onClick={handleCloseRoster} className="w-full bg-emerald-500 text-background-dark font-bold py-4 rounded-2xl shadow-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined">lock</span>
+                                <span>FECHAR CONVOCATÓRIA</span>
+                             </button>
+                        ) : (
+                            <div className="bg-card-dark border border-white/10 p-3 rounded-xl text-center">
+                                <span className="text-xs font-bold text-gray-400">Selecione {8 - confirmedCount} jogadores para fechar</span>
+                            </div>
+                        )}
+                        <button onClick={() => setIsManagingPlayers(false)} className="w-full bg-white/5 text-gray-400 font-bold py-3 rounded-2xl">Voltar atrás</button>
                     </div>
                 </div>
             )}
             <header>
                 <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-slate-400">{isLive ? 'Torneio em andamento!' : 'Próxima sessão confirmada.'}</p>
+                <p className="text-slate-400">
+                    {isLive ? 'Torneio em andamento!' : isRosterClosed ? 'Tudo pronto para começar.' : 'Fase de convocatória.'}
+                </p>
             </header>
             
-            <section className={`relative overflow-hidden rounded-3xl bg-card-dark shadow-xl ring-1 transition-all duration-700 ${isLive ? 'ring-primary shadow-primary/20' : isReady ? 'ring-emerald-500/50 scale-[1.01]' : 'ring-white/10'}`}>
+            <section className={`relative overflow-hidden rounded-3xl bg-card-dark shadow-xl ring-1 transition-all duration-700 ${isLive ? 'ring-primary shadow-primary/20' : isRosterClosed ? 'ring-emerald-500/50 scale-[1.01]' : 'ring-white/10'}`}>
                 {isLive && <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>}
                 <div className="p-5 relative z-10">
                     <div className="flex items-start justify-between mb-4">
                         <div>
                             <div className="flex items-center gap-2 mb-2">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isLive ? 'bg-primary text-background-dark border-primary' : isReady ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-white/10 text-gray-400 border-white/20'}`}>
-                                    {isLive ? 'A DECORRER' : isReady ? 'QUÓRUM ATINGIDO' : 'A AGUARDAR'}
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isLive ? 'bg-primary text-background-dark border-primary' : isRosterClosed ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-white/10 text-gray-400 border-white/20'}`}>
+                                    {isLive ? 'A DECORRER' : isRosterClosed ? 'CONVOCATÓRIA FECHADA' : 'ABERTO A INSCRIÇÕES'}
                                 </span>
                             </div>
                             <h3 className="text-xl font-bold text-white mb-1">{locName}</h3>
@@ -238,19 +272,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                                 {new Date(activeTournament.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' })} • {activeTournament.time}
                             </p>
                         </div>
-                        <div className={`p-2.5 rounded-xl border ${isLive ? 'bg-primary text-background-dark border-primary shadow-lg shadow-primary/30' : isReady ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-white/5 border-white/10 text-primary'}`}>
-                            <span className="material-symbols-outlined text-2xl">{isLive ? 'sports_baseball' : 'sports_tennis'}</span>
+                        <div className={`p-2.5 rounded-xl border ${isLive ? 'bg-primary text-background-dark border-primary shadow-lg shadow-primary/30' : isRosterClosed ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-white/5 border-white/10 text-primary'}`}>
+                            <span className="material-symbols-outlined text-2xl">{isLive ? 'sports_baseball' : isRosterClosed ? 'lock' : 'group_add'}</span>
                         </div>
                     </div>
                     <div className="space-y-2">
                         <div className="flex justify-between items-end">
                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Jogadores ({confirmedCount}/8)</span>
-                            <span className={`text-xs font-bold font-mono ${isReady ? 'text-emerald-400' : 'text-white'}`}>
-                                {isReady ? 'TUDO PRONTO' : `FALTAM ${8 - confirmedCount}`}
+                            <span className={`text-xs font-bold font-mono ${isQuorumReached ? 'text-emerald-400' : 'text-white'}`}>
+                                {isQuorumReached ? 'LOTAÇÃO ESGOTADA' : `FALTAM ${8 - confirmedCount}`}
                             </span>
                         </div>
                         <div className="h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 p-0.5">
-                            <div style={{ width: `${Math.min(100, (confirmedCount / 8) * 100)}%` }} className={`h-full transition-all duration-1000 rounded-full ${isReady ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-primary'}`}></div>
+                            <div style={{ width: `${Math.min(100, (confirmedCount / 8) * 100)}%` }} className={`h-full transition-all duration-1000 rounded-full ${isQuorumReached ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-primary'}`}></div>
                         </div>
                     </div>
                 </div>
@@ -261,17 +295,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <span className="material-symbols-outlined">scoreboard</span>
                     <span>IR PARA JOGO (EM DIRETO)</span>
                 </button>
+            ) : isRosterClosed ? (
+                <div className="space-y-3">
+                    <button onClick={() => setScreen(Screen.TEAM_SETUP)} className="w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all bg-emerald-500 text-background-dark shadow-xl scale-[1.02] active:scale-100">
+                        <span className="material-symbols-outlined">casino</span>
+                        <span>Realizar Sorteio de Equipas</span>
+                    </button>
+                    <button onClick={handleReopenRoster} className="w-full text-[10px] font-bold text-gray-500 uppercase py-2 flex items-center justify-center gap-1 hover:text-white">
+                        <span className="material-symbols-outlined text-sm">lock_open</span> Reabrir Convocatória para Alterações
+                    </button>
+                </div>
             ) : (
-                <button onClick={() => setScreen(Screen.TEAM_SETUP)} disabled={!isReady} className={`w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all ${isReady ? 'bg-emerald-500 text-background-dark shadow-xl scale-[1.02] active:scale-100' : 'bg-white/5 text-gray-600 border border-white/5 opacity-50 cursor-not-allowed'}`}>
-                    <span className="material-symbols-outlined">casino</span>
-                    <span>Realizar Sorteio de Equipas</span>
+                <button onClick={() => setIsManagingPlayers(true)} className="w-full font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all bg-white/5 text-white border border-white/10 hover:bg-white/10">
+                    <span className="material-symbols-outlined">person_add</span>
+                    <span>Gerir Jogadores / Convidados</span>
                 </button>
             )}
 
             <section className="flex flex-col gap-4">
                 <div className="flex items-center justify-between px-1">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Confirmados</h3>
-                    <button onClick={() => setIsManagingPlayers(true)} className="text-xs font-bold text-primary bg-primary/10 px-4 py-2 rounded-full">Gerir Todos</button>
+                    {!isRosterClosed && !isLive && <button onClick={() => setIsManagingPlayers(true)} className="text-xs font-bold text-primary bg-primary/10 px-4 py-2 rounded-full">Editar</button>}
                 </div>
                 <div className="grid grid-cols-4 gap-4">
                     {confirmedPlayers.map((p) => (
@@ -281,7 +325,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         </div>
                     ))}
                     {Array.from({ length: Math.max(0, 8 - confirmedCount) }).map((_, idx) => (
-                        <button key={`empty-${idx}`} onClick={() => setIsManagingPlayers(true)} className="flex flex-col items-center gap-2">
+                        <button key={`empty-${idx}`} onClick={() => !isRosterClosed && setIsManagingPlayers(true)} className={`flex flex-col items-center gap-2 ${isRosterClosed ? 'opacity-30 cursor-not-allowed' : ''}`}>
                             <div className="size-14 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all"><span className="material-symbols-outlined text-gray-700">person_add</span></div>
                             <span className="text-[10px] font-bold text-gray-700">Livre</span>
                         </button>
