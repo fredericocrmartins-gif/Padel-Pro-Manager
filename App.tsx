@@ -49,6 +49,7 @@ const App: React.FC = () => {
     if (!config.enabled || !config.url || !config.key) return null;
     try {
       const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}`, 'Content-Type': 'application/json' };
+      // Adiciona timestamp para evitar cache do browser
       const ts = `&ts=${Date.now()}`;
       const [pRes, lRes, tRes] = await Promise.all([
         fetch(`${config.url}/rest/v1/players?select=data${ts}`, { headers }).then(r => r.json()),
@@ -104,6 +105,7 @@ const App: React.FC = () => {
 
   // Lógica centralizada de atualização de dados
   const refreshAllData = useCallback(async () => {
+    // Se estivermos a carregar pela primeira vez, mostra loading. Se for refresh de foco, é silencioso.
     const cloudData = await fetchCloudData(cloudConfig);
     
     let loadedPlayers: Player[] = [];
@@ -152,7 +154,7 @@ const App: React.FC = () => {
     }
   }, [cloudConfig, fetchCloudData]);
 
-  // Initial Load (apenas uma vez)
+  // Initial Load
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
@@ -162,8 +164,22 @@ const App: React.FC = () => {
     init();
   }, [refreshAllData]);
 
-  // REMOVIDO: useEffect com setInterval para polling.
-  // A atualização agora acontece apenas via refreshAllData (chamado no PullToRefresh ou init).
+  // SMART SYNC: Atualiza quando a janela ganha foco (ex: mudar de aba ou desbloquear telemóvel)
+  useEffect(() => {
+      const handleFocus = () => {
+          if (document.visibilityState === 'visible' && cloudConfig.enabled) {
+              refreshAllData();
+          }
+      };
+
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleFocus);
+
+      return () => {
+          window.removeEventListener('focus', handleFocus);
+          document.removeEventListener('visibilitychange', handleFocus);
+      };
+  }, [refreshAllData, cloudConfig.enabled]);
 
   // Persistence local storage (Backup local)
   useEffect(() => {
@@ -411,10 +427,14 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-background-dark text-white font-sans selection:bg-primary selection:text-background-dark">
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl border-x border-white/5 bg-background-dark">
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 pointer-events-none">
+        <button 
+          onClick={refreshAllData}
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 cursor-pointer hover:bg-black/60 active:scale-95 transition-all"
+        >
           <div className={`size-1.5 rounded-full ${cloudConfig.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Cloud Enabled' : 'Offline'}</span>
-        </div>
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Live Cloud Sync' : 'Offline'}</span>
+          <span className="material-symbols-outlined text-[10px] text-gray-500">refresh</span>
+        </button>
         
         {renderScreen()}
 

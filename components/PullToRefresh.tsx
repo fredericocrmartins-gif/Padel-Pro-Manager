@@ -10,6 +10,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
   const [startY, setStartY] = useState(0);
   const [currentY, setCurrentY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   
   // Limiar para ativar o refresh (pixels)
@@ -17,8 +18,8 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
   // Fator de resistência (para parecer elástico)
   const DAMPING = 0.4;
 
+  // --- TOUCH HANDLERS (Mobile) ---
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Só ativa se estivermos no topo da página
     if (window.scrollY === 0 && !isRefreshing) {
       setStartY(e.touches[0].clientY);
     }
@@ -27,17 +28,48 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
   const handleTouchMove = (e: React.TouchEvent) => {
     const y = e.touches[0].clientY;
     const diff = y - startY;
-
-    // Se estiver a puxar para baixo e no topo
     if (diff > 0 && window.scrollY === 0 && !isRefreshing) {
-      // Impede o comportamento nativo se estivermos a puxar ativamente
-      // (Nota: em alguns browsers isto requer passive: false nos listeners, 
-      // mas React gere isto. Se falhar, o scroll nativo acontece)
       setCurrentY(diff * DAMPING);
     }
   };
 
   const handleTouchEnd = async () => {
+    finishDrag();
+  };
+
+  // --- MOUSE HANDLERS (Desktop) ---
+  const handleMouseDown = (e: React.MouseEvent) => {
+      if (window.scrollY === 0 && !isRefreshing) {
+          setStartY(e.clientY);
+          setIsDragging(true);
+      }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+      if (!isDragging) return;
+      const y = e.clientY;
+      const diff = y - startY;
+      if (diff > 0 && window.scrollY === 0 && !isRefreshing) {
+          setCurrentY(diff * DAMPING);
+      }
+  };
+
+  const handleMouseUp = () => {
+      if (isDragging) {
+          setIsDragging(false);
+          finishDrag();
+      }
+  };
+
+  const handleMouseLeave = () => {
+      if (isDragging) {
+          setIsDragging(false);
+          finishDrag();
+      }
+  };
+
+  // Lógica comum de finalização
+  const finishDrag = async () => {
     if (isRefreshing) return;
 
     if (currentY > THRESHOLD) {
@@ -47,7 +79,6 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
       try {
         await onRefresh();
       } finally {
-        // Pequeno delay para mostrar o sucesso antes de fechar
         setTimeout(() => {
             setIsRefreshing(false);
             setCurrentY(0);
@@ -59,7 +90,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
     setStartY(0);
   };
 
-  // Efeito para bloquear scroll body durante o refresh (opcional, melhora UX)
+  // Efeito para bloquear scroll body durante o refresh
   useEffect(() => {
     document.body.style.overflow = isRefreshing ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -71,6 +102,10 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       ref={contentRef}
     >
       {/* Loading Indicator Container */}
@@ -98,7 +133,6 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
         className="relative z-10 bg-background-dark min-h-screen transition-transform duration-300 ease-out"
         style={{ 
             transform: `translateY(${currentY}px)`,
-            // Se soltar e não for refresh, anima suavemente de volta. Se for drag, é instantaneo.
             transition: isRefreshing || currentY === 0 ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
         }}
       >
