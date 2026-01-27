@@ -1,15 +1,25 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Screen, Location, Tournament } from '../types';
 
 interface LocationManagerProps {
   setScreen: (screen: Screen) => void;
   locations: Location[];
-  setLocations: React.Dispatch<React.SetStateAction<Location[]>>;
+  onAddLocation: (location: Location) => void;
+  onUpdateLocation: (location: Location) => void;
+  onDeleteLocation: (id: string) => void;
   history: Tournament[];
 }
 
-export const LocationManagerScreen: React.FC<LocationManagerProps> = ({ setScreen, locations, setLocations, history }) => {
+export const LocationManagerScreen: React.FC<LocationManagerProps> = ({ 
+    setScreen, 
+    locations, 
+    onAddLocation,
+    onUpdateLocation,
+    onDeleteLocation,
+    history 
+}) => {
   const [newLocName, setNewLocName] = useState('');
   const [newLocType, setNewLocType] = useState<'Indoor' | 'Outdoor'>('Indoor');
   const [newAddress, setNewAddress] = useState('');
@@ -41,20 +51,18 @@ export const LocationManagerScreen: React.FC<LocationManagerProps> = ({ setScree
     if (!newLocName.trim()) return;
 
     if (editingId) {
-        setLocations(prev => prev.map(loc => {
-            if (loc.id === editingId) {
-                return {
-                    ...loc,
-                    name: newLocName,
-                    type: newLocType,
-                    address: newAddress,
-                    imageUrl: newImageUrl,
-                    googleMapsUrl: newMapsUrl,
-                    websiteUrl: newWebsiteUrl
-                };
-            }
-            return loc;
-        }));
+        const existing = locations.find(l => l.id === editingId);
+        if (existing) {
+            onUpdateLocation({
+                ...existing,
+                name: newLocName,
+                type: newLocType,
+                address: newAddress,
+                imageUrl: newImageUrl,
+                googleMapsUrl: newMapsUrl,
+                websiteUrl: newWebsiteUrl
+            });
+        }
     } else {
         const newLocation: Location = {
             id: `loc-${Date.now()}`,
@@ -65,7 +73,7 @@ export const LocationManagerScreen: React.FC<LocationManagerProps> = ({ setScree
             googleMapsUrl: newMapsUrl,
             websiteUrl: newWebsiteUrl
         };
-        setLocations([...locations, newLocation]);
+        onAddLocation(newLocation);
     }
     
     resetForm();
@@ -85,7 +93,7 @@ export const LocationManagerScreen: React.FC<LocationManagerProps> = ({ setScree
 
   const handleDelete = (id: string) => {
     if (confirm('Tem a certeza que deseja remover este local?')) {
-        setLocations(locations.filter(l => l.id !== id));
+        onDeleteLocation(id);
     }
   };
 
