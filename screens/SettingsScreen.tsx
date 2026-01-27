@@ -17,9 +17,11 @@ export const SettingsScreen: React.FC<SettingsProps> = ({ setScreen, players, lo
   const [url, setUrl] = useState(cloudConfig.url);
   const [key, setKey] = useState(cloudConfig.key);
 
+  const isEnvManaged = (import.meta as any).env?.VITE_SUPABASE_URL;
+
   const handleSaveCloud = () => {
     onUpdateCloudConfig({ url, key, enabled: !!(url && key) });
-    alert('Configurações de base de dados guardadas!');
+    alert('Configurações de base de dados guardadas localmente!');
   };
 
   return (
@@ -29,13 +31,23 @@ export const SettingsScreen: React.FC<SettingsProps> = ({ setScreen, players, lo
         <p className="text-gray-500 text-sm mt-1">Configurações globais e sincronização.</p>
       </header>
 
-      {/* NOVO: SECÇÃO DE DATABASE CLOUD */}
       <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Base de Dados Partilhada (Supabase)</h3>
-        <div className="bg-card-dark rounded-3xl border border-primary/20 p-6 space-y-4 shadow-xl shadow-primary/5">
-          <p className="text-[10px] text-gray-400 leading-relaxed">Conecte a aplicação a uma base de dados central para que todos os jogadores vejam o mesmo histórico e ranking em tempo real.</p>
+        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Base de Dados Cloud</h3>
+        <div className={`bg-card-dark rounded-3xl border ${isEnvManaged ? 'border-emerald-500/30 shadow-emerald-500/5' : 'border-primary/20 shadow-primary/5'} p-6 space-y-4 shadow-xl`}>
           
-          <div className="space-y-4">
+          {isEnvManaged ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-3">
+              <span className="material-symbols-outlined text-emerald-500">lock</span>
+              <div className="flex-1">
+                <p className="text-[10px] font-black text-emerald-400 uppercase">Gestão Via GitHub</p>
+                <p className="text-[9px] text-emerald-100/60 leading-tight">As credenciais estão protegidas pelo repositório. A ligação é automática.</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[10px] text-gray-400 leading-relaxed">Insira as chaves do Supabase para partilhar o histórico entre dispositivos.</p>
+          )}
+          
+          <div className={`space-y-4 ${isEnvManaged ? 'opacity-40 pointer-events-none' : ''}`}>
             <div className="space-y-1">
               <label className="text-[9px] font-black text-primary uppercase ml-1">Supabase Project URL</label>
               <input 
@@ -56,19 +68,21 @@ export const SettingsScreen: React.FC<SettingsProps> = ({ setScreen, players, lo
                 className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-xs text-white"
               />
             </div>
-            <button 
-              onClick={handleSaveCloud}
-              className="w-full bg-primary text-background-dark font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-all"
-            >
-              <span className="material-symbols-outlined">sync</span>
-              ATIVAR SINCRONIZAÇÃO
-            </button>
+            {!isEnvManaged && (
+              <button 
+                onClick={handleSaveCloud}
+                className="w-full bg-primary text-background-dark font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined">save</span>
+                GUARDAR CONFIGURAÇÃO
+              </button>
+            )}
           </div>
           
-          {!cloudConfig.enabled && (
+          {!cloudConfig.enabled && !isEnvManaged && (
              <div className="flex items-center gap-2 bg-orange-500/10 p-3 rounded-xl border border-orange-500/20">
                <span className="material-symbols-outlined text-orange-500 text-sm">warning</span>
-               <span className="text-[9px] text-orange-200">A app está em modo local. Os dados são guardados apenas neste telemóvel.</span>
+               <span className="text-[9px] text-orange-200">App em modo offline. Use as Variáveis de Ambiente no GitHub para sincronização oficial.</span>
              </div>
           )}
         </div>
@@ -98,7 +112,7 @@ export const SettingsScreen: React.FC<SettingsProps> = ({ setScreen, players, lo
         <h3 className="text-[10px] font-black text-red-500 uppercase tracking-widest px-1">Zona Crítica</h3>
         <div className="bg-red-500/5 rounded-3xl border border-red-500/10 p-6">
           <button 
-            onClick={onResetData}
+            onClick={() => { if(confirm('Apagar todos os dados locais?')) onResetData(); }}
             className="w-full bg-red-500/10 text-red-500 border border-red-500/30 font-black py-3 rounded-2xl text-[10px] uppercase hover:bg-red-500 hover:text-white transition-all"
           >
             Reset Total da App

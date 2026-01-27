@@ -40,6 +40,15 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() => {
+    // 1. Prioridade: Variáveis de Ambiente (Vite/GitHub Secrets)
+    const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+    const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+
+    if (envUrl && envKey) {
+      return { url: envUrl, key: envKey, enabled: true };
+    }
+
+    // 2. Fallback: LocalStorage (Configurado manualmente no Settings)
     const saved = localStorage.getItem('padel_cloud_config');
     return saved ? JSON.parse(saved) : { url: '', key: '', enabled: false };
   });
@@ -51,7 +60,6 @@ const App: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedHistoryTournament, setSelectedHistoryTournament] = useState<Tournament | null>(null);
 
-  // --- LOGICA DE SINCRONIZAÇÃO CLOUD (SUPABASE) ---
   const fetchCloudData = useCallback(async (config: CloudConfig) => {
     if (!config.enabled || !config.url || !config.key) return null;
     try {
@@ -61,12 +69,19 @@ const App: React.FC = () => {
         fetch(`${config.url}/rest/v1/locations?select=data`, { headers }).then(r => r.json()),
         fetch(`${config.url}/rest/v1/tournaments?select=data&order=created_at.desc`, { headers }).then(r => r.json())
       ]);
+
+      // Se o retorno não for array, Supabase pode estar mal configurado ou vazio
+      if (!Array.isArray(pRes)) return null;
+
       return {
-        players: pRes.map((i: any) => i.data),
-        locations: lRes.map((i: any) => i.data),
+        players: pRes.length > 0 ? pRes.map((i: any) => i.data) : MOCK_PLAYERS,
+        locations: lRes.length > 0 ? lRes.map((i: any) => i.data) : DEFAULT_LOCATIONS,
         history: tRes.map((i: any) => i.data)
       };
-    } catch (e) { console.error("Erro na Cloud:", e); return null; }
+    } catch (e) { 
+      console.error("Erro na Cloud:", e); 
+      return null; 
+    }
   }, []);
 
   const pushToCloud = async (table: 'players' | 'locations' | 'tournaments', id: string, data: any) => {
@@ -95,7 +110,6 @@ const App: React.FC = () => {
     } catch (e) { console.error(`Erro ao apagar ${table}:`, e); }
   };
 
-  // Carregamento Inicial
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
@@ -118,7 +132,6 @@ const App: React.FC = () => {
     init();
   }, [cloudConfig, fetchCloudData]);
 
-  // Persistência Local (Fallback)
   useEffect(() => {
     if (!isLoading) {
       localStorage.setItem('padel_players', JSON.stringify(players));
@@ -128,7 +141,6 @@ const App: React.FC = () => {
     }
   }, [players, locations, tournamentHistory, cloudConfig, isLoading]);
 
-  // RANKING LOGIC (Igual à anterior, reativa aos dados)
   const playerRankings = useMemo(() => {
     const rankings = new Map<string, { current: number, history: { date: string, points: number, level: string }[] }>();
     players.forEach(p => rankings.set(p.id, { current: 1000, history: [{ date: 'Início', points: 1000, level: 'Nível 1' }] }));
@@ -146,7 +158,8 @@ const App: React.FC = () => {
             s1.diff += (m.score1 - m.score2); s2.diff += (m.score2 - m.score1);
             if (m.score1 > m.score2) s1.wins++; else if (m.score2 > m.score1) s2.wins++;
         });
-        const championsIds = Array.from(teamWins.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff)[0]?.pids || [];
+        const standingsArr = Array.from(teamWins.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff);
+        const championsIds = standingsArr[0]?.pids || [];
         t.matches.forEach(m => {
             const updateP = (p: Player, won: boolean) => {
                 const d = rankings.get(p.id);
@@ -178,7 +191,6 @@ const App: React.FC = () => {
     });
   }, [players, playerRankings]);
 
-  // HANDLERS COM SYNC CLOUD
   const handleAddPlayer = async (p: Player) => {
     setPlayers(prev => [...prev, p]);
     await pushToCloud('players', p.id, p);
@@ -224,7 +236,7 @@ const App: React.FC = () => {
     switch (currentScreen) {
       case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={setActiveTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
       case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
-      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={() => { /* Logica de rondas mantida */ }} currentRound={currentRound} />;
+      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={() => { /* Manter lógica de rondas do App anterior */ }} currentRound={currentRound} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={matches} />;
       case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
       case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
