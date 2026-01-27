@@ -40,12 +40,8 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() => {
-    // Diagnóstico via Console (F12 no browser)
     const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
     const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-
-    console.log("Deteção de Ambiente Cloud:");
-    console.log("VITE_SUPABASE_URL detetada:", envUrl ? "Sim (OK)" : "Não (Verificar Vercel/Build)");
 
     if (envUrl && envKey) {
       return { url: envUrl, key: envKey, enabled: true };
@@ -53,8 +49,6 @@ const App: React.FC = () => {
 
     const saved = localStorage.getItem('padel_cloud_config');
     const localConfig = saved ? JSON.parse(saved) : { url: '', key: '', enabled: false };
-    
-    console.log("Estado Cloud Final:", localConfig.enabled ? "Ativo via LocalStorage" : "Offline Local");
     return localConfig;
   });
 
@@ -80,10 +74,7 @@ const App: React.FC = () => {
         fetch(`${config.url}/rest/v1/tournaments?select=data&order=created_at.desc`, { headers }).then(r => r.json())
       ]);
 
-      if (!Array.isArray(pRes)) {
-        console.error("Erro na resposta do Supabase: Resposta não é um array. Verifique as tabelas.");
-        return null;
-      }
+      if (!Array.isArray(pRes)) return null;
 
       return {
         players: pRes.length > 0 ? pRes.map((i: any) => i.data) : MOCK_PLAYERS,
@@ -91,7 +82,6 @@ const App: React.FC = () => {
         history: tRes.map((i: any) => i.data)
       };
     } catch (e) { 
-      console.error("Falha na ligação ao Supabase:", e); 
       return null; 
     }
   }, []);
@@ -203,6 +193,48 @@ const App: React.FC = () => {
     });
   }, [players, playerRankings]);
 
+  const handleNextRound = () => {
+    if (currentRound < 3) {
+      const nextRoundNumber = currentRound + 1;
+      const alreadyExists = matches.some(m => m.round === nextRoundNumber);
+      
+      if (!alreadyExists) {
+        // Encontrar as 4 equipas originais da Ronda 1
+        const r1m1 = matches.find(m => m.round === 1 && m.court === 1);
+        const r1m2 = matches.find(m => m.round === 1 && m.court === 2);
+        
+        if (r1m1 && r1m2) {
+          const teamAses = r1m1.team1;
+          const teamReis = r1m1.team2;
+          const teamDamas = r1m2.team1;
+          const teamValetes = r1m2.team2;
+
+          let nextMatches: Match[] = [];
+          const timestamp = Date.now();
+          const dateStr = new Date().toISOString();
+
+          if (nextRoundNumber === 2) {
+            // Ronda 2: Ases vs Damas (C1) | Reis vs Valetes (C2)
+            nextMatches = [
+              { id: `m3-${timestamp}`, team1: teamAses, team2: teamDamas, score1: 0, score2: 0, court: 1, status: 'live', round: 2, date: dateStr },
+              { id: `m4-${timestamp}`, team1: teamReis, team2: teamValetes, score1: 0, score2: 0, court: 2, status: 'live', round: 2, date: dateStr }
+            ];
+          } else if (nextRoundNumber === 3) {
+            // Ronda 3: Ases vs Valetes (C1) | Reis vs Damas (C2)
+            nextMatches = [
+              { id: `m5-${timestamp}`, team1: teamAses, team2: teamValetes, score1: 0, score2: 0, court: 1, status: 'live', round: 3, date: dateStr },
+              { id: `m6-${timestamp}`, team1: teamReis, team2: teamDamas, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
+            ];
+          }
+          setMatches(prev => [...prev, ...nextMatches]);
+        }
+      }
+      setCurrentRound(nextRoundNumber);
+    } else {
+      handleFinishTournament();
+    }
+  };
+
   const handleAddPlayer = async (p: Player) => {
     setPlayers(prev => [...prev, p]);
     await pushToCloud('players', p.id, p);
@@ -229,6 +261,7 @@ const App: React.FC = () => {
         };
         setTournamentHistory(prev => [finished, ...prev]);
         setActiveTournament(null);
+        setMatches([]); // Limpar para o próximo
         await pushToCloud('tournaments', finished.id, finished);
     }
     setScreen(Screen.TOURNAMENT_RESULTS);
@@ -248,8 +281,8 @@ const App: React.FC = () => {
     switch (currentScreen) {
       case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={setActiveTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
       case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
-      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={() => { if(currentRound < 3) setCurrentRound(prev => prev+1); else handleFinishTournament(); }} currentRound={currentRound} />;
-      case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={matches} />;
+      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={handleNextRound} currentRound={currentRound} />;
+      case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={tournamentHistory[0]?.matches || []} />;
       case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
       case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
       case Screen.HISTORY_DETAIL: return selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} onDeleteTournament={handleDeleteTournament} /> : null;
