@@ -40,17 +40,22 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() => {
-    // 1. Prioridade: Variáveis de Ambiente (Vite/GitHub Secrets)
+    // Diagnóstico via Console (F12 no browser)
     const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
     const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+
+    console.log("Deteção de Ambiente Cloud:");
+    console.log("VITE_SUPABASE_URL detetada:", envUrl ? "Sim (OK)" : "Não (Verificar Vercel/Build)");
 
     if (envUrl && envKey) {
       return { url: envUrl, key: envKey, enabled: true };
     }
 
-    // 2. Fallback: LocalStorage (Configurado manualmente no Settings)
     const saved = localStorage.getItem('padel_cloud_config');
-    return saved ? JSON.parse(saved) : { url: '', key: '', enabled: false };
+    const localConfig = saved ? JSON.parse(saved) : { url: '', key: '', enabled: false };
+    
+    console.log("Estado Cloud Final:", localConfig.enabled ? "Ativo via LocalStorage" : "Offline Local");
+    return localConfig;
   });
 
   const [currentScreen, setScreen] = useState<Screen>(Screen.HOME);
@@ -63,15 +68,22 @@ const App: React.FC = () => {
   const fetchCloudData = useCallback(async (config: CloudConfig) => {
     if (!config.enabled || !config.url || !config.key) return null;
     try {
-      const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}` };
+      const headers = { 
+        'apikey': config.key, 
+        'Authorization': `Bearer ${config.key}`,
+        'Content-Type': 'application/json'
+      };
+      
       const [pRes, lRes, tRes] = await Promise.all([
         fetch(`${config.url}/rest/v1/players?select=data`, { headers }).then(r => r.json()),
         fetch(`${config.url}/rest/v1/locations?select=data`, { headers }).then(r => r.json()),
         fetch(`${config.url}/rest/v1/tournaments?select=data&order=created_at.desc`, { headers }).then(r => r.json())
       ]);
 
-      // Se o retorno não for array, Supabase pode estar mal configurado ou vazio
-      if (!Array.isArray(pRes)) return null;
+      if (!Array.isArray(pRes)) {
+        console.error("Erro na resposta do Supabase: Resposta não é um array. Verifique as tabelas.");
+        return null;
+      }
 
       return {
         players: pRes.length > 0 ? pRes.map((i: any) => i.data) : MOCK_PLAYERS,
@@ -79,7 +91,7 @@ const App: React.FC = () => {
         history: tRes.map((i: any) => i.data)
       };
     } catch (e) { 
-      console.error("Erro na Cloud:", e); 
+      console.error("Falha na ligação ao Supabase:", e); 
       return null; 
     }
   }, []);
@@ -236,7 +248,7 @@ const App: React.FC = () => {
     switch (currentScreen) {
       case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={setActiveTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={setActiveTournament} history={tournamentHistory} />;
       case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />;
-      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={() => { /* Manter lógica de rondas do App anterior */ }} currentRound={currentRound} />;
+      case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={(id, t, inc) => setMatches(prev => prev.map(m => m.id === id ? {...m, [t === 1 ? 'score1' : 'score2']: inc ? m[t === 1 ? 'score1' : 'score2'] + 1 : Math.max(0, m[t === 1 ? 'score1' : 'score2'] - 1)} : m))} onNextRound={() => { if(currentRound < 3) setCurrentRound(prev => prev+1); else handleFinishTournament(); }} currentRound={currentRound} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={matches} />;
       case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
       case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
