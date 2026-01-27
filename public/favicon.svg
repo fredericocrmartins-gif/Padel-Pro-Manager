@@ -14,21 +14,21 @@
     </filter>
   </defs>
   
-  <!-- Fundo Circular (Full Canvas) -->
+  <!-- Fundo Circular -->
   <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
   
-  <!-- Grupo Principal com Margem de Segurança (Escala 90%) -->
+  <!-- Conteúdo Principal (Escala 90% para margem de segurança) -->
   <g transform="translate(25.6, 25.6) scale(0.9)">
-    <!-- Fundo Decorativo -->
+    <!-- Elemento Decorativo (Swoosh) -->
     <path d="M0 256 Q 150 50 350 100 T 512 300 V 512 H 0 Z" fill="url(#sw)" opacity="0.3"/>
     
-    <!-- Raquete (Trás) -->
+    <!-- Raquete (Atrás) -->
     <g transform="translate(220, 200) rotate(-25)" filter="url(#sh)">
          <!-- Cabo -->
          <rect x="-25" y="120" width="50" height="140" rx="10" fill="#1e293b" />
          <path d="M-25 140 H25 M-25 160 H25 M-25 180 H25 M-25 200 H25" stroke="#334155" stroke-width="4" />
          
-         <!-- Estrutura -->
+         <!-- Cabeça da Raquete -->
          <path d="M-20 120 L-40 20 L40 20 L20 120 Z" fill="#ffffff" stroke="#1e293b" stroke-width="8" stroke-linejoin="round"/>
          <ellipse cx="0" cy="-80" rx="110" ry="130" fill="#ffffff" stroke="#1e293b" stroke-width="10" />
          
@@ -41,7 +41,7 @@
          </g>
     </g>
 
-    <!-- Bola -->
+    <!-- Bola de Padel -->
     <g transform="translate(380, 240)" filter="url(#sh)">
          <circle r="45" fill="#ffffff" stroke="#1e293b" stroke-width="8" />
          <path d="M-25 -25 Q 0 0 -25 25 M25 -25 Q 0 0 25 25" fill="none" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>

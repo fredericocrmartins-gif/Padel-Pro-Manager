@@ -376,7 +376,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
             <header className="flex justify-between items-start">
                 <div className="flex gap-3 items-center">
-                    <img src="/favicon.png" className="w-14 h-14 object-contain drop-shadow-2xl" alt="Logo" />
+                    <img src="/favicon.svg" className="w-14 h-14 object-contain drop-shadow-2xl" alt="Logo" />
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight mb-1 leading-none">Padel <br/><span className="text-primary">Manager</span></h1>
                         <p className="text-slate-400 text-xs mt-1">
@@ -508,7 +508,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in">
         <header className="flex justify-between items-start">
             <div className="flex gap-3 items-center">
-                <img src="/favicon.png" className="w-14 h-14 object-contain drop-shadow-2xl" alt="Logo" />
+                <img src="/favicon.svg" className="w-14 h-14 object-contain drop-shadow-2xl" alt="Logo" />
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight mb-1 leading-none">Padel <br/><span className="text-primary">Manager</span></h1>
                     <p className="text-slate-400 text-xs mt-1">Pronto para o próximo jogo?</p>
