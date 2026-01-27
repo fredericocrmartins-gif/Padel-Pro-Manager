@@ -17,11 +17,13 @@ import { TournamentHistoryScreen } from './screens/TournamentHistoryScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 
 const App: React.FC = () => {
-  // Inicializa com listas vazias para permitir introdução manual total (White Label)
+  // Inicializa com listas vazias
   const [players, setPlayers] = useState<Player[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [tournamentHistory, setTournamentHistory] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<'online' | 'offline' | 'error'>('offline');
+  const [lastErrorMessage, setLastErrorMessage] = useState<string>('');
   
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() => {
     const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
@@ -38,58 +40,105 @@ const App: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedHistoryTournament, setSelectedHistoryTournament] = useState<Tournament | null>(null);
 
-  // Função auxiliar para comparar se dois objetos de torneio são diferentes (para evitar re-renders desnecessários)
   const isTournamentDifferent = (t1: Tournament | null, t2: Tournament | null) => {
       if (!t1 && !t2) return false;
       if (!t1 || !t2) return true;
       return JSON.stringify(t1) !== JSON.stringify(t2);
   };
 
+  // Carregar dados locais (Fallback)
+  const loadLocalData = useCallback(() => {
+      const p = localStorage.getItem('padel_players');
+      const l = localStorage.getItem('padel_locations');
+      const h = localStorage.getItem('padel_history');
+      
+      let loadedPlayers = p ? JSON.parse(p) : [];
+      let loadedLocations = l ? JSON.parse(l) : [];
+      let allTournaments = h ? JSON.parse(h) : [];
+
+      setPlayers(loadedPlayers);
+      setLocations(loadedLocations);
+      return allTournaments;
+  }, []);
+
   const fetchCloudData = useCallback(async (config: CloudConfig) => {
-    if (!config.enabled || !config.url || !config.key) return null;
+    if (!config.enabled || !config.url || !config.key) {
+        setSyncStatus('offline');
+        return null;
+    }
+    
     try {
       const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}`, 'Content-Type': 'application/json' };
-      // Adiciona timestamp para evitar cache do browser
       const ts = `&ts=${Date.now()}`;
-      const [pRes, lRes, tRes] = await Promise.all([
-        fetch(`${config.url}/rest/v1/players?select=data${ts}`, { headers }).then(r => r.json()),
-        fetch(`${config.url}/rest/v1/locations?select=data${ts}`, { headers }).then(r => r.json()),
-        fetch(`${config.url}/rest/v1/tournaments?select=data${ts}`, { headers }).then(r => r.json())
+      
+      // Executa fetchs
+      const responses = await Promise.all([
+        fetch(`${config.url}/rest/v1/players?select=data${ts}`, { headers }),
+        fetch(`${config.url}/rest/v1/locations?select=data${ts}`, { headers }),
+        fetch(`${config.url}/rest/v1/tournaments?select=data${ts}`, { headers })
       ]);
-      
-      if (!Array.isArray(pRes)) return null;
 
-      // Processamento e Ordenação Segura
-      const playersData = pRes.length > 0 ? pRes.map((i: any) => i.data) : [];
-      const locationsData = lRes.length > 0 ? lRes.map((i: any) => i.data) : [];
-      const tournamentsData = tRes.length > 0 ? tRes.map((i: any) => i.data) : [];
+      // Verifica erros HTTP (ex: 401 Unauthorized, 404 Not Found)
+      for (const res of responses) {
+          if (!res.ok) {
+              const errorText = await res.text();
+              throw new Error(`Erro ${res.status}: ${errorText}`);
+          }
+      }
+
+      const [pRes, lRes, tRes] = await Promise.all(responses.map(r => r.json()));
       
-      // Ordenar torneios por data (mais recente primeiro)
+      // Processamento
+      const playersData = Array.isArray(pRes) ? pRes.map((i: any) => i.data) : [];
+      const locationsData = Array.isArray(lRes) ? lRes.map((i: any) => i.data) : [];
+      const tournamentsData = Array.isArray(tRes) ? tRes.map((i: any) => i.data) : [];
+      
       tournamentsData.sort((a: Tournament, b: Tournament) => {
           return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
       });
 
+      setSyncStatus('online');
+      setLastErrorMessage('');
+      
       return {
         players: playersData,
         locations: locationsData,
         tournaments: tournamentsData
       };
-    } catch (e) { 
+
+    } catch (e: any) { 
         console.error("Cloud Fetch Error:", e);
-        return null; 
+        setSyncStatus('error');
+        setLastErrorMessage(e.message || "Erro desconhecido de rede");
+        return null; // Retorna null explícito em caso de erro
     }
   }, []);
 
   const pushToCloud = async (table: 'players' | 'locations' | 'tournaments', id: string, data: any) => {
     if (!cloudConfig.enabled) return;
     try {
-      await fetch(`${cloudConfig.url}/rest/v1/${table}`, {
+      // Upsert: Tenta inserir, se o ID já existir, atualiza
+      const res = await fetch(`${cloudConfig.url}/rest/v1/${table}`, {
         method: 'POST',
-        headers: { 'apikey': cloudConfig.key, 'Authorization': `Bearer ${cloudConfig.key}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+        headers: { 
+            'apikey': cloudConfig.key, 
+            'Authorization': `Bearer ${cloudConfig.key}`, 
+            'Content-Type': 'application/json', 
+            'Prefer': 'resolution=merge-duplicates' // Importante para o Upsert funcionar
+        },
         body: JSON.stringify({ id, data })
       });
-    } catch (e) {
+      
+      if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(`Push falhou (${res.status}): ${txt}`);
+      }
+      setSyncStatus('online');
+      
+    } catch (e: any) {
         console.error("Push Error:", e);
+        setSyncStatus('error');
+        setLastErrorMessage("Falha ao guardar dados. Verifique a internet.");
     }
   };
 
@@ -105,29 +154,20 @@ const App: React.FC = () => {
 
   // Lógica centralizada de atualização de dados
   const refreshAllData = useCallback(async () => {
-    // Se estivermos a carregar pela primeira vez, mostra loading. Se for refresh de foco, é silencioso.
-    const cloudData = await fetchCloudData(cloudConfig);
-    
-    let loadedPlayers: Player[] = [];
-    let loadedLocations: Location[] = [];
     let allTournaments: Tournament[] = [];
 
-    if (cloudData) {
-      loadedPlayers = cloudData.players;
-      loadedLocations = cloudData.locations;
-      allTournaments = cloudData.tournaments;
-    } else {
-      const p = localStorage.getItem('padel_players');
-      const l = localStorage.getItem('padel_locations');
-      const h = localStorage.getItem('padel_history');
-      if (p) loadedPlayers = JSON.parse(p);
-      if (l) loadedLocations = JSON.parse(l);
-      if (h) allTournaments = JSON.parse(h);
-    }
+    // 1. Tenta carregar da Cloud
+    const cloudData = await fetchCloudData(cloudConfig);
 
-    // Atualiza estados
-    setPlayers(loadedPlayers);
-    setLocations(loadedLocations);
+    if (cloudData) {
+        // Sucesso Cloud
+        setPlayers(cloudData.players);
+        setLocations(cloudData.locations);
+        allTournaments = cloudData.tournaments;
+    } else {
+        // Falha Cloud ou Offline -> Carrega Local
+        allTournaments = loadLocalData();
+    }
 
     // Separar Lógica de Ativos vs Histórico
     const active = allTournaments.find(t => t.status === 'scheduled' || t.status === 'live');
@@ -135,7 +175,6 @@ const App: React.FC = () => {
 
     setTournamentHistory(history);
 
-    // Lógica vital para sincronização
     if (active) {
        setActiveTournament(prev => {
            if (isTournamentDifferent(prev, active)) {
@@ -152,7 +191,7 @@ const App: React.FC = () => {
        setActiveTournament(null);
        setMatches([]);
     }
-  }, [cloudConfig, fetchCloudData]);
+  }, [cloudConfig, fetchCloudData, loadLocalData]);
 
   // Initial Load
   useEffect(() => {
@@ -164,7 +203,7 @@ const App: React.FC = () => {
     init();
   }, [refreshAllData]);
 
-  // SMART SYNC: Atualiza quando a janela ganha foco (ex: mudar de aba ou desbloquear telemóvel)
+  // SMART SYNC
   useEffect(() => {
       const handleFocus = () => {
           if (document.visibilityState === 'visible' && cloudConfig.enabled) {
@@ -181,7 +220,7 @@ const App: React.FC = () => {
       };
   }, [refreshAllData, cloudConfig.enabled]);
 
-  // Persistence local storage (Backup local)
+  // Persistence local storage (Backup local sempre atualizado)
   useEffect(() => {
     if (!isLoading) {
       localStorage.setItem('padel_players', JSON.stringify(players));
@@ -242,18 +281,15 @@ const App: React.FC = () => {
   }, [players, playerRankings]);
 
   // --- Handlers ---
-
   const handleCreateTournament = async (t: Tournament) => {
       const newT = { ...t, status: 'scheduled' as const, rosterClosed: false };
       setActiveTournament(newT);
       await pushToCloud('tournaments', newT.id, newT);
   };
-
   const handleUpdateActiveTournament = async (t: Tournament) => {
       setActiveTournament(t);
       await pushToCloud('tournaments', t.id, t);
   };
-
   const handleCancelTournament = async () => {
       if (activeTournament && window.confirm('Deseja cancelar este agendamento?')) {
           const cancelledT = { ...activeTournament, status: 'cancelled' as const };
@@ -263,28 +299,23 @@ const App: React.FC = () => {
           await pushToCloud('tournaments', cancelledT.id, cancelledT);
       }
   };
-
   const handleNextRound = async () => {
     const nextRoundNumber = currentRound + 1;
     if (nextRoundNumber > 3) {
       setScreen(Screen.TOURNAMENT_SUMMARY);
       return;
     }
-
     const r1 = matches.filter(m => m.round === 1);
     const m1 = r1.find(m => m.court === 1);
     const m2 = r1.find(m => m.court === 2);
-
     if (m1 && m2) {
       const winner1 = m1.score1 > m1.score2 ? m1.team1 : m1.team2;
       const loser1 = m1.score1 > m1.score2 ? m1.team2 : m1.team1;
       const winner2 = m2.score1 > m2.score2 ? m2.team1 : m2.team2;
       const loser2 = m2.score1 > m2.score2 ? m2.team2 : m2.team1;
-
       let nextMatches: Match[] = [];
       const timestamp = Date.now();
       const dateStr = new Date().toISOString();
-
       if (nextRoundNumber === 2) {
         nextMatches = [
           { id: `m-r2-c1-${timestamp}`, team1: winner1, team2: winner2, score1: 0, score2: 0, court: 1, status: 'live', round: 2, date: dateStr },
@@ -296,11 +327,9 @@ const App: React.FC = () => {
           { id: `m-r3-c2-${timestamp}`, team1: winner2, team2: loser1, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
         ];
       }
-      
       const updatedMatches = [...matches, ...nextMatches];
       setMatches(updatedMatches);
       setCurrentRound(nextRoundNumber);
-
       if (activeTournament) {
          const updatedTournament = { ...activeTournament, matches: updatedMatches };
          setActiveTournament(updatedTournament);
@@ -308,7 +337,6 @@ const App: React.FC = () => {
       }
     }
   };
-
   const updateMatchScore = async (id: string, team: 1 | 2, increment: boolean) => {
     const updatedMatches = matches.map(m => m.id === id ? {
       ...m, 
@@ -316,16 +344,13 @@ const App: React.FC = () => {
         ? m[team === 1 ? 'score1' : 'score2'] + 1 
         : Math.max(0, m[team === 1 ? 'score1' : 'score2'] - 1)
     } : m);
-    
     setMatches(updatedMatches);
-    
     if (activeTournament) {
         const updatedTournament = { ...activeTournament, matches: updatedMatches };
         setActiveTournament(updatedTournament);
         pushToCloud('tournaments', updatedTournament.id, updatedTournament);
     }
   };
-
   const handleStartTournament = async (initialMatches: Match[]) => {
       setMatches(initialMatches);
       setCurrentRound(1);
@@ -340,47 +365,15 @@ const App: React.FC = () => {
       }
       setScreen(Screen.LIVE_GAME);
   };
-
-  // ... Restantes handlers de CRUD
-  const handleAddPlayer = async (p: Player) => { 
-    setPlayers(prev => [...prev, p]); 
-    await pushToCloud('players', p.id, p); 
-  };
-  
-  const handleUpdatePlayer = async (p: Player) => { 
-    setPlayers(prev => prev.map(old => old.id === p.id ? p : old)); 
-    await pushToCloud('players', p.id, p); 
-  };
-
-  const handleDeletePlayer = async (id: string) => { 
-    if (window.confirm('Remover jogador?')) { 
-      setPlayers(prev => prev.filter(p => p.id !== id)); 
-      await deleteFromCloud('players', id); 
-    } 
-  };
-
-  const handleAddLocation = async (l: Location) => {
-    setLocations(prev => [...prev, l]);
-    await pushToCloud('locations', l.id, l);
-  };
-
-  const handleUpdateLocation = async (l: Location) => {
-    setLocations(prev => prev.map(old => old.id === l.id ? l : old));
-    await pushToCloud('locations', l.id, l);
-  };
-
-  const handleDeleteLocation = async (id: string) => {
-    setLocations(prev => prev.filter(l => l.id !== id));
-    await deleteFromCloud('locations', id);
-  };
-
+  const handleAddPlayer = async (p: Player) => { setPlayers(prev => [...prev, p]); await pushToCloud('players', p.id, p); };
+  const handleUpdatePlayer = async (p: Player) => { setPlayers(prev => prev.map(old => old.id === p.id ? p : old)); await pushToCloud('players', p.id, p); };
+  const handleDeletePlayer = async (id: string) => { if (window.confirm('Remover jogador?')) { setPlayers(prev => prev.filter(p => p.id !== id)); await deleteFromCloud('players', id); } };
+  const handleAddLocation = async (l: Location) => { setLocations(prev => [...prev, l]); await pushToCloud('locations', l.id, l); };
+  const handleUpdateLocation = async (l: Location) => { setLocations(prev => prev.map(old => old.id === l.id ? l : old)); await pushToCloud('locations', l.id, l); };
+  const handleDeleteLocation = async (id: string) => { setLocations(prev => prev.filter(l => l.id !== id)); await deleteFromCloud('locations', id); };
   const handleFinishTournament = async () => {
     if (activeTournament) {
-        const finished: Tournament = { 
-          ...activeTournament, 
-          status: 'finished', 
-          matches: matches.map(m => ({...m, status: 'finished'})), 
-        };
+        const finished: Tournament = { ...activeTournament, status: 'finished', matches: matches.map(m => ({...m, status: 'finished'})), };
         setTournamentHistory(prev => [finished, ...prev]);
         setActiveTournament(null);
         setMatches([]);
@@ -388,7 +381,6 @@ const App: React.FC = () => {
     }
     setScreen(Screen.TOURNAMENT_RESULTS);
   };
-
   const handleDeleteTournament = async (id: string) => { 
     if (window.confirm('Apagar do histórico permanentemente?')) { 
       setTournamentHistory(prev => prev.filter(t => t.id !== id)); 
@@ -397,8 +389,16 @@ const App: React.FC = () => {
     } 
   };
 
+  const handleStatusClick = () => {
+    if (syncStatus === 'error') {
+        alert(`Erro de Sincronização:\n\n${lastErrorMessage}\n\nVerifique:\n1. Ligação à Internet\n2. Chaves de API no PC e Telemóvel\n3. Políticas RLS no Supabase`);
+    } else {
+        refreshAllData();
+    }
+  };
+
   const renderScreen = () => {
-    if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary bg-background-dark"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">Sincronizando Cloud...</p></div>;
+    if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary bg-background-dark"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">A carregar...</p></div>;
     
     let ScreenComponent;
     switch (currentScreen) {
@@ -428,11 +428,13 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-background-dark text-white font-sans selection:bg-primary selection:text-background-dark">
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl border-x border-white/5 bg-background-dark">
         <button 
-          onClick={refreshAllData}
-          className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 cursor-pointer hover:bg-black/60 active:scale-95 transition-all"
+          onClick={handleStatusClick}
+          className={`absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 backdrop-blur-md px-3 py-1 rounded-full border cursor-pointer hover:bg-black/60 active:scale-95 transition-all ${syncStatus === 'error' ? 'bg-red-500/20 border-red-500/50' : 'bg-black/40 border-white/5'}`}
         >
-          <div className={`size-1.5 rounded-full ${cloudConfig.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Live Cloud Sync' : 'Offline'}</span>
+          <div className={`size-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : syncStatus === 'error' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`}></div>
+          <span className={`text-[8px] font-black uppercase tracking-widest ${syncStatus === 'error' ? 'text-red-400' : 'text-gray-400'}`}>
+             {syncStatus === 'online' ? 'Cloud Sync' : syncStatus === 'error' ? 'Erro Sync' : 'Offline'}
+          </span>
           <span className="material-symbols-outlined text-[10px] text-gray-500">refresh</span>
         </button>
         
