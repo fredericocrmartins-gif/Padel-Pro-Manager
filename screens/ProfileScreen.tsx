@@ -282,14 +282,21 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                           <span className="text-[8px] font-bold text-gray-500 uppercase">WR</span>
                       </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex items-center gap-3">
-                        <span className="material-symbols-outlined text-primary text-xl">local_fire_department</span>
-                        <div><p className="text-xs font-black text-white">{stats.maxWinStreak} Jogos</p><p className="text-[8px] text-gray-500 uppercase font-bold">Recorde Vitória</p></div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                        <span className="material-symbols-outlined text-primary text-xl mb-1">local_fire_department</span>
+                        <span className="text-xl font-black text-white">{stats.maxWinStreak}</span>
+                        <span className="text-[8px] text-gray-500 uppercase font-bold">Streak</span>
                     </div>
-                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex items-center gap-3">
-                        <span className="material-symbols-outlined text-yellow-500 text-xl">emoji_events</span>
-                        <div><p className="text-xs font-black text-white">{stats.myWonTournaments.length}</p><p className="text-[8px] text-gray-500 uppercase font-bold">Títulos</p></div>
+                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                        <span className="material-symbols-outlined text-yellow-500 text-xl mb-1">emoji_events</span>
+                        <span className="text-xl font-black text-white">{stats.myWonTournaments.length}</span>
+                        <span className="text-[8px] text-gray-500 uppercase font-bold">Títulos</span>
+                    </div>
+                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                        <span className="material-symbols-outlined text-blue-400 text-xl mb-1">event_available</span>
+                        <span className="text-xl font-black text-white">{stats.myTournaments.length}</span>
+                        <span className="text-[8px] text-gray-500 uppercase font-bold">Assiduidade</span>
                     </div>
                   </div>
               </div>
