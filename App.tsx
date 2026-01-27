@@ -69,13 +69,12 @@ const App: React.FC = () => {
     
     try {
       const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}`, 'Content-Type': 'application/json' };
-      const ts = `&ts=${Date.now()}`;
       
-      // Executa fetchs
+      // Executa fetchs com cache: 'no-store' para garantir dados frescos sem usar query params inválidos
       const responses = await Promise.all([
-        fetch(`${config.url}/rest/v1/players?select=data${ts}`, { headers }),
-        fetch(`${config.url}/rest/v1/locations?select=data${ts}`, { headers }),
-        fetch(`${config.url}/rest/v1/tournaments?select=data${ts}`, { headers })
+        fetch(`${config.url}/rest/v1/players?select=data`, { headers, cache: 'no-store' }),
+        fetch(`${config.url}/rest/v1/locations?select=data`, { headers, cache: 'no-store' }),
+        fetch(`${config.url}/rest/v1/tournaments?select=data`, { headers, cache: 'no-store' })
       ]);
 
       // Verifica erros HTTP (ex: 401 Unauthorized, 404 Not Found)
