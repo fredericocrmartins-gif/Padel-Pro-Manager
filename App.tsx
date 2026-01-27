@@ -15,17 +15,6 @@ import { HistoryDetailScreen } from './screens/HistoryDetailScreen';
 import { TournamentHistoryScreen } from './screens/TournamentHistoryScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 
-const MOCK_PLAYERS: Player[] = [
-  { id: '1', name: 'Albino', lastName: 'Guerreiro', nickname: 'Guerreiro', level: 'Nível 1', image: '' },
-  { id: '2', name: 'Carlos', lastName: 'Nunes', nickname: 'Carlitos', level: 'Nível 1', image: '' },
-  { id: '3', name: 'Frederico', lastName: 'Martins', nickname: 'Fred', level: 'Nível 1', image: '' },
-  { id: '4', name: 'Gonçalo', lastName: 'Catita', nickname: 'Catita', level: 'Nível 1', image: '' },
-  { id: '5', name: 'Miguel', lastName: 'Jesus', nickname: 'Miguel', level: 'Nível 1', image: '' },
-  { id: '6', name: 'Pedro', lastName: 'Nascimento', nickname: 'Pedro', level: 'Nível 1', image: '' },
-  { id: '7', name: 'Ricardo', lastName: 'Santos', nickname: 'Ricardo', level: 'Nível 1', image: '' },
-  { id: '8', name: 'Rui', lastName: 'Nascimento', nickname: 'Rui', level: 'Nível 1', image: '' },
-];
-
 const DEFAULT_LOCATIONS: Location[] = [
   { id: '1', name: 'Rackets Pro EUL', type: 'Outdoor', address: 'Azinhaga das Galhardas, Lisboa' },
   { id: '2', name: 'W Padel Country Club', type: 'Indoor', address: 'Parque Florestal de Monsanto, Lisboa' },
@@ -34,7 +23,8 @@ const DEFAULT_LOCATIONS: Location[] = [
 ];
 
 const App: React.FC = () => {
-  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
+  // Inicializa com listas vazias para permitir introdução manual
+  const [players, setPlayers] = useState<Player[]>([]);
   const [locations, setLocations] = useState<Location[]>(DEFAULT_LOCATIONS);
   const [tournamentHistory, setTournamentHistory] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,7 +55,8 @@ const App: React.FC = () => {
       ]);
       if (!Array.isArray(pRes)) return null;
       return {
-        players: pRes.length > 0 ? pRes.map((i: any) => i.data) : MOCK_PLAYERS,
+        // Se a cloud estiver vazia, retorna listas vazias (exceto locais default se desejado)
+        players: pRes.length > 0 ? pRes.map((i: any) => i.data) : [],
         locations: lRes.length > 0 ? lRes.map((i: any) => i.data) : DEFAULT_LOCATIONS,
         history: tRes.map((i: any) => i.data)
       };
@@ -98,10 +89,14 @@ const App: React.FC = () => {
       setIsLoading(true);
       const cloudData = await fetchCloudData(cloudConfig);
       if (cloudData) {
-        setPlayers(cloudData.players); setLocations(cloudData.locations); setTournamentHistory(cloudData.history);
+        setPlayers(cloudData.players); 
+        setLocations(cloudData.locations); 
+        setTournamentHistory(cloudData.history);
       } else {
         const p = localStorage.getItem('padel_players'), l = localStorage.getItem('padel_locations'), h = localStorage.getItem('padel_history');
-        if (p) setPlayers(JSON.parse(p)); if (l) setLocations(JSON.parse(l)); if (h) setTournamentHistory(JSON.parse(h));
+        if (p) setPlayers(JSON.parse(p)); 
+        if (l) setLocations(JSON.parse(l)); 
+        if (h) setTournamentHistory(JSON.parse(h));
       }
       setIsLoading(false);
     };
@@ -125,7 +120,8 @@ const App: React.FC = () => {
         if (!t.matches) return;
         const teamWins = new Map<string, { wins: number, diff: number, pids: string[] }>();
         t.matches.forEach(m => {
-            const k1 = m.team1.map(p => p.id).sort().join('-'), k2 = m.team2.map(p => p.id).sort().join('-');
+            const k1 = m.team1.map(p => p.id).sort().join('-');
+            const k2 = m.team2.map(p => p.id).sort().join('-');
             if (!teamWins.has(k1)) teamWins.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p=>p.id) });
             if (!teamWins.has(k2)) teamWins.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p=>p.id) });
             const s1 = teamWins.get(k1)!, s2 = teamWins.get(k2)!;
@@ -164,8 +160,6 @@ const App: React.FC = () => {
 
   const handleNextRound = () => {
     const nextRoundNumber = currentRound + 1;
-    
-    // NOVO: Em vez de finalizar direto, vai para o Resumo para correção/revisão
     if (nextRoundNumber > 3) {
       setScreen(Screen.TOURNAMENT_SUMMARY);
       return;
@@ -201,9 +195,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddPlayer = async (p: Player) => { setPlayers(prev => [...prev, p]); await pushToCloud('players', p.id, p); };
-  const handleUpdatePlayer = async (p: Player) => { setPlayers(prev => prev.map(old => old.id === p.id ? p : old)); await pushToCloud('players', p.id, p); };
-  const handleDeletePlayer = async (id: string) => { if (window.confirm('Remover jogador?')) { setPlayers(prev => prev.filter(p => p.id !== id)); await deleteFromCloud('players', id); } };
+  const handleAddPlayer = async (p: Player) => { 
+    setPlayers(prev => [...prev, p]); 
+    await pushToCloud('players', p.id, p); 
+  };
+  
+  const handleUpdatePlayer = async (p: Player) => { 
+    setPlayers(prev => prev.map(old => old.id === p.id ? p : old)); 
+    await pushToCloud('players', p.id, p); 
+  };
+
+  const handleDeletePlayer = async (id: string) => { 
+    if (window.confirm('Remover jogador?')) { 
+      setPlayers(prev => prev.filter(p => p.id !== id)); 
+      await deleteFromCloud('players', id); 
+    } 
+  };
 
   const handleFinishTournament = async () => {
     if (activeTournament) {
@@ -220,7 +227,13 @@ const App: React.FC = () => {
     setScreen(Screen.TOURNAMENT_RESULTS);
   };
 
-  const handleDeleteTournament = async (id: string) => { if (window.confirm('Apagar do histórico?')) { setTournamentHistory(prev => prev.filter(t => t.id !== id)); await deleteFromCloud('tournaments', id); setScreen(Screen.TOURNAMENT_HISTORY); } };
+  const handleDeleteTournament = async (id: string) => { 
+    if (window.confirm('Apagar do histórico?')) { 
+      setTournamentHistory(prev => prev.filter(t => t.id !== id)); 
+      await deleteFromCloud('tournaments', id); 
+      setScreen(Screen.TOURNAMENT_HISTORY); 
+    } 
+  };
 
   const updateMatchScore = (id: string, team: 1 | 2, increment: boolean) => {
     setMatches(prev => prev.map(m => m.id === id ? {
