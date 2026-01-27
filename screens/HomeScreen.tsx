@@ -205,49 +205,88 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {isManagingPlayers && (
                 <div className="fixed inset-0 z-[60] bg-background-dark flex flex-col animate-fade-in">
                     {/* Header e Search - Fixo no Topo */}
-                    <div className="shrink-0 p-4 border-b border-white/5 bg-background-dark/95 backdrop-blur-md z-10">
-                        <header className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold">Gestão de Confirmados</h2>
-                            <button onClick={() => setIsManagingPlayers(false)} className="size-10 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
+                    <div className="shrink-0 p-4 border-b border-white/5 bg-background-dark/95 backdrop-blur-md z-10 space-y-3">
+                        <header className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <h2 className="text-xl font-bold leading-none">Gestão de Equipa</h2>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                                    <span className={isQuorumReached ? "text-emerald-400" : "text-primary"}>{confirmedCount}</span> de 8 Selecionados
+                                </p>
+                            </div>
+                            <button onClick={() => setIsManagingPlayers(false)} className="size-10 rounded-full bg-white/5 flex items-center justify-center border border-white/5 hover:bg-white/10 active:scale-95 transition-all">
                                 <span className="material-symbols-outlined">close</span>
                             </button>
                         </header>
                         
+                        {/* Barra de Progresso Visual */}
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full transition-all duration-300 ${isQuorumReached ? 'bg-emerald-500' : 'bg-primary'}`} 
+                                style={{ width: `${Math.min(100, (confirmedCount / 8) * 100)}%` }}
+                            ></div>
+                        </div>
+                        
                         {isAddingGuest ? (
-                            <div className="bg-primary/10 border border-primary/30 p-4 rounded-2xl animate-fade-in-up">
-                                <h3 className="text-xs font-bold text-primary uppercase mb-3">Novo Convidado</h3>
+                            <div className="bg-card-dark border border-white/10 p-4 rounded-2xl animate-fade-in-up shadow-xl">
+                                <h3 className="text-xs font-bold text-primary uppercase mb-3 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-sm">person_add</span>
+                                    Novo Convidado
+                                </h3>
                                 <div className="space-y-3">
-                                    <input type="text" placeholder="Nome Completo" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white" />
-                                    <input type="text" placeholder="Alcunha" value={guestNickname} onChange={(e) => setGuestNickname(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white" />
+                                    <input type="text" placeholder="Nome Completo" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:border-primary/50 transition-colors" />
+                                    <input type="text" placeholder="Alcunha (Opcional)" value={guestNickname} onChange={(e) => setGuestNickname(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white focus:border-primary/50 transition-colors" />
                                     <div className="flex gap-2">
-                                        <button onClick={() => setIsAddingGuest(false)} className="flex-1 py-3 text-gray-400 font-bold text-xs uppercase border border-white/10 rounded-xl">Cancelar</button>
-                                        <button onClick={handleSaveGuest} className="flex-1 py-3 bg-primary text-background-dark rounded-xl font-bold text-xs uppercase shadow-lg shadow-primary/20">Guardar</button>
+                                        <button onClick={() => setIsAddingGuest(false)} className="flex-1 py-3 text-gray-400 font-bold text-xs uppercase border border-white/10 rounded-xl hover:bg-white/5">Cancelar</button>
+                                        <button onClick={handleSaveGuest} className="flex-1 py-3 bg-primary text-background-dark rounded-xl font-bold text-xs uppercase shadow-lg shadow-primary/20 hover:bg-primary/90">Guardar</button>
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
-                                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
-                                    <input type="text" placeholder="Pesquisar..." value={playerSearchTerm} onChange={(e) => setPlayerSearchTerm(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-base text-white" />
+                                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xl">search</span>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Pesquisar jogador..." 
+                                        value={playerSearchTerm} 
+                                        onChange={(e) => setPlayerSearchTerm(e.target.value)} 
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-3.5 text-sm text-white focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-gray-600" 
+                                    />
                                 </div>
-                                <button onClick={() => setIsAddingGuest(true)} className="bg-primary/20 text-primary border border-primary/30 px-4 rounded-xl flex items-center justify-center active:scale-95 transition-transform"><span className="material-symbols-outlined">person_add</span></button>
+                                <button onClick={() => setIsAddingGuest(true)} className="bg-primary/10 text-primary border border-primary/20 px-4 rounded-2xl flex items-center justify-center active:scale-95 transition-transform">
+                                    <span className="material-symbols-outlined text-xl">person_add</span>
+                                </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Lista com Scroll - Ocupa o espaço disponível */}
-                    <div className="flex-1 overflow-y-auto p-4 hide-scrollbar">
-                        <div className="grid grid-cols-4 gap-3 pb-4">
+                    {/* Lista com Scroll - Otimizada para Mobile (3 Colunas) */}
+                    <div className="flex-1 overflow-y-auto p-4 hide-scrollbar bg-gradient-to-b from-transparent to-black/20">
+                        <div className="grid grid-cols-3 gap-3 pb-24">
                             {players.filter(p => (p.nickname || p.name).toLowerCase().includes(playerSearchTerm.toLowerCase())).map(p => {
                                 const isConfirmed = activeTournament.confirmedPlayerIds.includes(p.id);
                                 return (
-                                    <button key={p.id} onClick={() => togglePlayerInActiveTournament(p.id)} className={`flex flex-col items-center p-2 rounded-2xl border transition-all active:scale-95 ${isConfirmed ? 'bg-primary/20 border-primary shadow-[0_0_10px_rgba(96,122,251,0.2)]' : 'bg-card-dark border-white/5 opacity-50'}`}>
-                                        <div className="relative mb-1">
-                                            {renderGlobalAvatar(p, 'size-10')}
-                                            {isConfirmed && <div className="absolute -bottom-1 -right-1 bg-primary text-black rounded-full p-0.5 border border-background-dark animate-bounce-subtle"><span className="material-symbols-outlined text-[10px] font-bold block">check</span></div>}
+                                    <button 
+                                        key={p.id} 
+                                        onClick={() => togglePlayerInActiveTournament(p.id)} 
+                                        className={`relative flex flex-col items-center p-3 rounded-2xl border transition-all duration-200 active:scale-95 ${
+                                            isConfirmed 
+                                                ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(96,122,251,0.15)] ring-1 ring-primary/50' 
+                                                : 'bg-card-dark border-white/5 hover:border-white/10'
+                                        }`}
+                                    >
+                                        <div className="relative mb-2">
+                                            {renderGlobalAvatar(p, 'size-12')}
+                                            {isConfirmed && (
+                                                <div className="absolute -bottom-1 -right-1 bg-primary text-background-dark rounded-full size-5 flex items-center justify-center border-2 border-background-dark animate-bounce-subtle shadow-sm">
+                                                    <span className="material-symbols-outlined text-[12px] font-black">check</span>
+                                                </div>
+                                            )}
                                         </div>
-                                        <span className="text-[9px] font-bold truncate w-full text-center mt-1">{p.nickname || p.name.split(' ')[0]}</span>
+                                        <span className={`text-[10px] font-bold truncate w-full text-center leading-tight ${isConfirmed ? 'text-white' : 'text-gray-400'}`}>
+                                            {p.nickname || p.name.split(' ')[0]}
+                                        </span>
+                                        <span className="text-[8px] font-bold text-gray-600 mt-0.5">{p.level}</span>
                                     </button>
                                 );
                             })}
@@ -255,18 +294,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </div>
 
                     {/* Footer Fixo - Sempre visível mesmo com teclado */}
-                    <div className="shrink-0 p-4 bg-background-dark border-t border-white/10 pb-8 safe-area-bottom">
+                    <div className="shrink-0 p-4 bg-background-dark border-t border-white/10 pb-8 safe-area-bottom z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
                          {isQuorumReached ? (
                              <button onClick={handleCloseRoster} className="w-full bg-emerald-500 text-background-dark font-black py-4 rounded-2xl shadow-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
                                 <span className="material-symbols-outlined">lock</span>
                                 <span>FECHAR CONVOCATÓRIA</span>
                              </button>
                         ) : (
-                            <div className="bg-card-dark border border-white/10 p-4 rounded-2xl text-center mb-2">
-                                <span className="text-xs font-bold text-gray-400">Selecione <span className="text-white">{8 - confirmedCount}</span> jogadores para fechar</span>
+                            <div className="bg-card-dark border border-white/10 p-4 rounded-2xl flex items-center justify-center gap-3">
+                                <span className="material-symbols-outlined text-gray-500 animate-pulse">group_add</span>
+                                <span className="text-xs font-bold text-gray-400">
+                                    Selecione mais <span className="text-primary text-sm font-black mx-1">{8 - confirmedCount}</span> para fechar
+                                </span>
                             </div>
                         )}
-                        <button onClick={() => setIsManagingPlayers(false)} className="w-full py-3 mt-2 text-gray-500 font-bold text-xs uppercase hover:text-white transition-colors">Voltar atrás</button>
+                        <button onClick={() => setIsManagingPlayers(false)} className="w-full py-3 mt-2 text-gray-500 font-bold text-xs uppercase hover:text-white transition-colors">Voltar</button>
                     </div>
                 </div>
             )}
