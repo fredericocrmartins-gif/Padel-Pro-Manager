@@ -77,9 +77,12 @@ const App: React.FC = () => {
         fetch(`${config.url}/rest/v1/tournaments?select=data`, { headers, cache: 'no-store' })
       ]);
 
-      // Verifica erros HTTP (ex: 401 Unauthorized, 404 Not Found)
+      // Verifica erros HTTP
       for (const res of responses) {
           if (!res.ok) {
+              if (res.status === 404) {
+                 throw new Error("Tabelas não encontradas no Supabase. Vá a Configurações > Setup SQL para corrigir.");
+              }
               const errorText = await res.text();
               throw new Error(`Erro ${res.status}: ${errorText}`);
           }
@@ -109,7 +112,7 @@ const App: React.FC = () => {
         console.error("Cloud Fetch Error:", e);
         setSyncStatus('error');
         setLastErrorMessage(e.message || "Erro desconhecido de rede");
-        return null; // Retorna null explícito em caso de erro
+        return null;
     }
   }, []);
 
@@ -129,6 +132,9 @@ const App: React.FC = () => {
       });
       
       if (!res.ok) {
+          if (res.status === 404) {
+              throw new Error("Tabela inexistente. Verifique o SQL no Supabase.");
+          }
           const txt = await res.text();
           throw new Error(`Push falhou (${res.status}): ${txt}`);
       }
@@ -137,7 +143,7 @@ const App: React.FC = () => {
     } catch (e: any) {
         console.error("Push Error:", e);
         setSyncStatus('error');
-        setLastErrorMessage("Falha ao guardar dados. Verifique a internet.");
+        setLastErrorMessage(e.message || "Falha ao guardar dados.");
     }
   };
 
@@ -390,7 +396,10 @@ const App: React.FC = () => {
 
   const handleStatusClick = () => {
     if (syncStatus === 'error') {
-        alert(`Erro de Sincronização:\n\n${lastErrorMessage}\n\nVerifique:\n1. Ligação à Internet\n2. Chaves de API no PC e Telemóvel\n3. Políticas RLS no Supabase`);
+        alert(`Estado da Sincronização:\n\n${lastErrorMessage}`);
+        if (lastErrorMessage.includes('Tabelas')) {
+             setScreen(Screen.SETTINGS);
+        }
     } else {
         refreshAllData();
     }

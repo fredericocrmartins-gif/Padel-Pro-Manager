@@ -203,52 +203,74 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return (
         <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in relative">
             {isManagingPlayers && (
-                <div className="fixed inset-0 z-[60] bg-background-dark/95 backdrop-blur-md p-4 animate-fade-in flex flex-col">
-                    <header className="flex items-center justify-between mb-4"><h2 className="text-xl font-bold">Gestão de Confirmados</h2><button onClick={() => setIsManagingPlayers(false)} className="size-10 rounded-full bg-white/5 flex items-center justify-center"><span className="material-symbols-outlined">close</span></button></header>
-                    {isAddingGuest ? (
-                        <div className="bg-primary/10 border border-primary/30 p-4 rounded-2xl mb-4 animate-fade-in-up">
-                            <h3 className="text-xs font-bold text-primary uppercase mb-3">Novo Convidado</h3>
-                            <div className="space-y-3">
-                                <input type="text" placeholder="Nome Completo" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-sm text-white" />
-                                <input type="text" placeholder="Alcunha" value={guestNickname} onChange={(e) => setGuestNickname(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-sm text-white" />
-                                <div className="flex gap-2"><button onClick={() => setIsAddingGuest(false)} className="flex-1 py-2 text-gray-400 font-bold text-xs uppercase">Cancelar</button><button onClick={handleSaveGuest} className="flex-1 py-2 bg-primary text-background-dark rounded-xl font-bold text-xs uppercase">Guardar</button></div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex gap-2 mb-4">
-                            <div className="relative flex-1"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span><input type="text" placeholder="Pesquisar..." value={playerSearchTerm} onChange={(e) => setPlayerSearchTerm(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white" /></div>
-                            <button onClick={() => setIsAddingGuest(true)} className="bg-primary/20 text-primary border border-primary/30 px-4 rounded-xl flex items-center justify-center"><span className="material-symbols-outlined text-sm">person_add</span></button>
-                        </div>
-                    )}
-                    <div className="grid grid-cols-4 gap-3 overflow-y-auto pb-32 hide-scrollbar">
-                        {players.filter(p => (p.nickname || p.name).toLowerCase().includes(playerSearchTerm.toLowerCase())).map(p => {
-                            const isConfirmed = activeTournament.confirmedPlayerIds.includes(p.id);
-                            return (
-                                <button key={p.id} onClick={() => togglePlayerInActiveTournament(p.id)} className={`flex flex-col items-center p-2 rounded-2xl border transition-all ${isConfirmed ? 'bg-primary/20 border-primary scale-105' : 'bg-card-dark border-white/5 opacity-50'}`}>
-                                    <div className="relative mb-1">
-                                        {renderGlobalAvatar(p, 'size-10')}
-                                        {isConfirmed && <div className="absolute -bottom-1 -right-1 bg-primary text-black rounded-full p-0.5 border border-background-dark"><span className="material-symbols-outlined text-[10px] font-bold block">check</span></div>}
+                <div className="fixed inset-0 z-[60] bg-background-dark flex flex-col animate-fade-in">
+                    {/* Header e Search - Fixo no Topo */}
+                    <div className="shrink-0 p-4 border-b border-white/5 bg-background-dark/95 backdrop-blur-md z-10">
+                        <header className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold">Gestão de Confirmados</h2>
+                            <button onClick={() => setIsManagingPlayers(false)} className="size-10 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </header>
+                        
+                        {isAddingGuest ? (
+                            <div className="bg-primary/10 border border-primary/30 p-4 rounded-2xl animate-fade-in-up">
+                                <h3 className="text-xs font-bold text-primary uppercase mb-3">Novo Convidado</h3>
+                                <div className="space-y-3">
+                                    <input type="text" placeholder="Nome Completo" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white" />
+                                    <input type="text" placeholder="Alcunha" value={guestNickname} onChange={(e) => setGuestNickname(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-base text-white" />
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setIsAddingGuest(false)} className="flex-1 py-3 text-gray-400 font-bold text-xs uppercase border border-white/10 rounded-xl">Cancelar</button>
+                                        <button onClick={handleSaveGuest} className="flex-1 py-3 bg-primary text-background-dark rounded-xl font-bold text-xs uppercase shadow-lg shadow-primary/20">Guardar</button>
                                     </div>
-                                    <span className="text-[9px] font-bold truncate w-full text-center">{p.nickname || p.name.split(' ')[0]}</span>
-                                </button>
-                            );
-                        })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+                                    <input type="text" placeholder="Pesquisar..." value={playerSearchTerm} onChange={(e) => setPlayerSearchTerm(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-base text-white" />
+                                </div>
+                                <button onClick={() => setIsAddingGuest(true)} className="bg-primary/20 text-primary border border-primary/30 px-4 rounded-xl flex items-center justify-center active:scale-95 transition-transform"><span className="material-symbols-outlined">person_add</span></button>
+                            </div>
+                        )}
                     </div>
-                    <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto space-y-2">
-                        {isQuorumReached ? (
-                             <button onClick={handleCloseRoster} className="w-full bg-emerald-500 text-background-dark font-bold py-4 rounded-2xl shadow-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2">
+
+                    {/* Lista com Scroll - Ocupa o espaço disponível */}
+                    <div className="flex-1 overflow-y-auto p-4 hide-scrollbar">
+                        <div className="grid grid-cols-4 gap-3 pb-4">
+                            {players.filter(p => (p.nickname || p.name).toLowerCase().includes(playerSearchTerm.toLowerCase())).map(p => {
+                                const isConfirmed = activeTournament.confirmedPlayerIds.includes(p.id);
+                                return (
+                                    <button key={p.id} onClick={() => togglePlayerInActiveTournament(p.id)} className={`flex flex-col items-center p-2 rounded-2xl border transition-all active:scale-95 ${isConfirmed ? 'bg-primary/20 border-primary shadow-[0_0_10px_rgba(96,122,251,0.2)]' : 'bg-card-dark border-white/5 opacity-50'}`}>
+                                        <div className="relative mb-1">
+                                            {renderGlobalAvatar(p, 'size-10')}
+                                            {isConfirmed && <div className="absolute -bottom-1 -right-1 bg-primary text-black rounded-full p-0.5 border border-background-dark animate-bounce-subtle"><span className="material-symbols-outlined text-[10px] font-bold block">check</span></div>}
+                                        </div>
+                                        <span className="text-[9px] font-bold truncate w-full text-center mt-1">{p.nickname || p.name.split(' ')[0]}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Footer Fixo - Sempre visível mesmo com teclado */}
+                    <div className="shrink-0 p-4 bg-background-dark border-t border-white/10 pb-8 safe-area-bottom">
+                         {isQuorumReached ? (
+                             <button onClick={handleCloseRoster} className="w-full bg-emerald-500 text-background-dark font-black py-4 rounded-2xl shadow-xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
                                 <span className="material-symbols-outlined">lock</span>
                                 <span>FECHAR CONVOCATÓRIA</span>
                              </button>
                         ) : (
-                            <div className="bg-card-dark border border-white/10 p-3 rounded-xl text-center">
-                                <span className="text-xs font-bold text-gray-400">Selecione {8 - confirmedCount} jogadores para fechar</span>
+                            <div className="bg-card-dark border border-white/10 p-4 rounded-2xl text-center mb-2">
+                                <span className="text-xs font-bold text-gray-400">Selecione <span className="text-white">{8 - confirmedCount}</span> jogadores para fechar</span>
                             </div>
                         )}
-                        <button onClick={() => setIsManagingPlayers(false)} className="w-full bg-white/5 text-gray-400 font-bold py-3 rounded-2xl">Voltar atrás</button>
+                        <button onClick={() => setIsManagingPlayers(false)} className="w-full py-3 mt-2 text-gray-500 font-bold text-xs uppercase hover:text-white transition-colors">Voltar atrás</button>
                     </div>
                 </div>
             )}
+
             <header>
                 <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
                 <p className="text-slate-400">

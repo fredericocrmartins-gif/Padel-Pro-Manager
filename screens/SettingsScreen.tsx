@@ -24,6 +24,29 @@ export const SettingsScreen: React.FC<SettingsProps> = ({ setScreen, players, lo
     alert('Configurações de base de dados guardadas localmente!');
   };
 
+  const sqlScript = `
+-- 1. Criar Tabelas
+CREATE TABLE IF NOT EXISTS players (id text PRIMARY KEY, data jsonb);
+CREATE TABLE IF NOT EXISTS locations (id text PRIMARY KEY, data jsonb);
+CREATE TABLE IF NOT EXISTS tournaments (id text PRIMARY KEY, data jsonb);
+
+-- 2. Ativar RLS (Segurança)
+ALTER TABLE players ENABLE ROW LEVEL SECURITY;
+ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tournaments ENABLE ROW LEVEL SECURITY;
+
+-- 3. Criar Políticas de Acesso Público
+-- (Permite que a App leia e escreva sem login, usando apenas a API Key)
+CREATE POLICY "Public Access Players" ON players FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Access Locations" ON locations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WITH CHECK (true);
+`.trim();
+
+  const copySql = () => {
+    navigator.clipboard.writeText(sqlScript);
+    alert("Código SQL copiado! Cole-o no 'SQL Editor' do Supabase e execute.");
+  };
+
   return (
     <div className="flex flex-col gap-8 px-4 pt-12 pb-32 animate-fade-in">
       <header>
@@ -85,6 +108,20 @@ export const SettingsScreen: React.FC<SettingsProps> = ({ setScreen, players, lo
                <span className="text-[9px] text-orange-200">App em modo offline. Use as Variáveis de Ambiente no GitHub para sincronização oficial.</span>
              </div>
           )}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Setup Supabase</h3>
+        <div className="bg-card-dark rounded-3xl border border-white/5 p-6 space-y-3">
+            <p className="text-[10px] text-gray-400">Se a sincronização não funcionar (Erro 404), corre este script no SQL Editor do Supabase para criar as tabelas necessárias.</p>
+            <button 
+                onClick={copySql}
+                className="w-full bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-bold py-4 rounded-2xl text-xs uppercase hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center gap-2"
+            >
+                <span className="material-symbols-outlined">content_copy</span>
+                Copiar SQL de Configuração
+            </button>
         </div>
       </section>
 
