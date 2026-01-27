@@ -12,22 +12,26 @@ interface HistoryProps {
 export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locations, onViewTournament, onDeleteTournament }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [showCancelled, setShowCancelled] = useState(false);
 
   const filteredHistory = useMemo(() => {
     return history
       .filter(t => {
         const loc = locations.find(l => l.id === t.locationId);
-        // Fallback seguro se o local não existir na lista sincronizada
         const locName = loc?.name || 'Local Desconhecido';
         const matchesSearch = locName.toLowerCase().includes(searchTerm.toLowerCase());
         
         const tDate = new Date(t.date);
         const monthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
         const matchesMonth = selectedMonth === 'all' || monthYear === selectedMonth;
-        return matchesSearch && matchesMonth && t.status === 'finished';
+        
+        // Exibe se estiver finished ou (se showCancelled for true, também cancelled)
+        const statusMatch = t.status === 'finished' || (showCancelled && t.status === 'cancelled');
+        
+        return matchesSearch && matchesMonth && statusMatch;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [history, searchTerm, selectedMonth, locations]);
+  }, [history, searchTerm, selectedMonth, locations, showCancelled]);
 
   const months = useMemo(() => {
     const m = new Set<string>();
@@ -57,27 +61,33 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-          <button 
-            onClick={() => setSelectedMonth('all')}
-            className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap border transition-all ${selectedMonth === 'all' ? 'bg-primary border-primary text-background-dark' : 'bg-white/5 border-white/10 text-gray-500'}`}
-          >
-            Todos os Meses
-          </button>
-          {months.map(m => {
-            const [year, month] = m.split('-');
-            const date = new Date(parseInt(year), parseInt(month) - 1);
-            const label = date.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
-            return (
+        <div className="flex gap-2 items-center">
+             <button onClick={() => setShowCancelled(!showCancelled)} className={`px-3 py-2 rounded-xl border flex items-center gap-2 ${showCancelled ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-card-dark border-white/10 text-gray-500'}`}>
+                 <span className="material-symbols-outlined text-[16px]">{showCancelled ? 'check_box' : 'check_box_outline_blank'}</span>
+                 <span className="text-[10px] font-bold uppercase">Cancelados</span>
+             </button>
+             <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar flex-1">
               <button 
-                key={m}
-                onClick={() => setSelectedMonth(m)}
-                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap border transition-all ${selectedMonth === m ? 'bg-primary border-primary text-background-dark' : 'bg-white/5 border-white/10 text-gray-500'}`}
+                onClick={() => setSelectedMonth('all')}
+                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap border transition-all ${selectedMonth === 'all' ? 'bg-primary border-primary text-background-dark' : 'bg-white/5 border-white/10 text-gray-500'}`}
               >
-                {label}
+                Todos
               </button>
-            );
-          })}
+              {months.map(m => {
+                const [year, month] = m.split('-');
+                const date = new Date(parseInt(year), parseInt(month) - 1);
+                const label = date.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
+                return (
+                  <button 
+                    key={m}
+                    onClick={() => setSelectedMonth(m)}
+                    className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap border transition-all ${selectedMonth === m ? 'bg-primary border-primary text-background-dark' : 'bg-white/5 border-white/10 text-gray-500'}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
         </div>
       </div>
 
@@ -91,22 +101,28 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
           filteredHistory.map(t => {
             const loc = locations.find(l => l.id === t.locationId);
             const locName = loc?.name || 'Local Desconhecido';
+            const isCancelled = t.status === 'cancelled';
+
             return (
-              <div key={t.id} className="relative group">
+              <div key={t.id} className={`relative group ${isCancelled ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                 <button 
-                  onClick={() => onViewTournament(t)}
-                  className="w-full bg-card-dark p-5 rounded-3xl border border-white/5 hover:border-primary/30 transition-all text-left group active:scale-[0.98]"
+                  onClick={() => !isCancelled && onViewTournament(t)}
+                  disabled={isCancelled}
+                  className="w-full bg-card-dark p-5 rounded-3xl border border-white/5 hover:border-primary/30 transition-all text-left group active:scale-[0.98] disabled:cursor-not-allowed"
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-1">
+                      <span className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${isCancelled ? 'text-red-500' : 'text-primary'}`}>
                         {new Date(t.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {isCancelled && ' (CANCELADO)'}
                       </span>
                       <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{locName}</h3>
                     </div>
-                    <div className="size-10 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <span className="material-symbols-outlined text-gray-500 group-hover:text-primary">chevron_right</span>
-                    </div>
+                    {!isCancelled && (
+                        <div className="size-10 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                            <span className="material-symbols-outlined text-gray-500 group-hover:text-primary">chevron_right</span>
+                        </div>
+                    )}
                   </div>
                   
                   <div className="flex items-center gap-4 text-gray-500">
@@ -123,7 +139,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
                 {/* Botão de eliminar flutuante */}
                 <button 
                   onClick={(e) => { e.stopPropagation(); onDeleteTournament?.(t.id); }}
-                  className="absolute bottom-4 right-4 p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                  className="absolute bottom-4 right-4 p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 z-10"
                 >
                   <span className="material-symbols-outlined text-base">delete</span>
                 </button>

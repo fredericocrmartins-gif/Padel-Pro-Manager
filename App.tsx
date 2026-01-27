@@ -38,12 +38,17 @@ const App: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedHistoryTournament, setSelectedHistoryTournament] = useState<Tournament | null>(null);
 
+  // Função auxiliar para comparar se dois objetos de torneio são diferentes (para evitar re-renders desnecessários)
+  const isTournamentDifferent = (t1: Tournament | null, t2: Tournament | null) => {
+      if (!t1 && !t2) return false;
+      if (!t1 || !t2) return true;
+      return JSON.stringify(t1) !== JSON.stringify(t2);
+  };
+
   const fetchCloudData = useCallback(async (config: CloudConfig) => {
     if (!config.enabled || !config.url || !config.key) return null;
     try {
       const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}`, 'Content-Type': 'application/json' };
-      // Adicionamos um timestamp para evitar cache agressiva no refresh manual
-      // REMOVIDO: order=created_at.desc para evitar erro se a coluna não existir. A ordenação é feita abaixo.
       const ts = `&ts=${Date.now()}`;
       const [pRes, lRes, tRes] = await Promise.all([
         fetch(`${config.url}/rest/v1/players?select=data${ts}`, { headers }).then(r => r.json()),
@@ -97,7 +102,7 @@ const App: React.FC = () => {
     } catch (e) {}
   };
 
-  // Lógica centralizada de atualização de dados (usada no init e no pull-to-refresh)
+  // Lógica centralizada de atualização de dados
   const refreshAllData = useCallback(async () => {
     const cloudData = await fetchCloudData(cloudConfig);
     
@@ -118,6 +123,7 @@ const App: React.FC = () => {
       if (h) allTournaments = JSON.parse(h);
     }
 
+    // Atualiza estados apenas se houver mudanças (React faz shallow compare, mas arrays novos triggeram sempre, então aceitamos o update)
     setPlayers(loadedPlayers);
     setLocations(loadedLocations);
 
@@ -127,21 +133,24 @@ const App: React.FC = () => {
 
     setTournamentHistory(history);
 
-    // Só atualizamos o torneio ativo se:
-    // 1. Não tivermos nenhum localmente E vier um da cloud
-    // 2. OU se fizermos refresh manual e quisermos forçar o estado do servidor (comportamento padrão do refresh)
+    // Lógica vital para sincronização multi-dispositivo
     if (active) {
-      setActiveTournament(active);
-      if (active.status === 'live' && active.matches && active.matches.length > 0) {
-          setMatches(active.matches);
-          const maxRound = Math.max(...active.matches.map(m => m.round));
-          setCurrentRound(maxRound);
-      }
+       setActiveTournament(prev => {
+           // Se o torneio que veio da cloud for diferente do que temos em memória, atualizamos a memória
+           if (isTournamentDifferent(prev, active)) {
+               // Se o torneio tem jogos (live), atualizamos também o estado dos jogos
+               if (active.matches && active.matches.length > 0) {
+                   setMatches(active.matches);
+                   const maxRound = Math.max(...active.matches.map(m => m.round));
+                   setCurrentRound(maxRound);
+               }
+               return active;
+           }
+           return prev;
+       });
     } else {
-      // Se não vier nada ativo da cloud, mas tivermos um localmente que ainda não foi sincronizado?
-      // Neste modelo assumimos que a cloud é a verdade absoluta no refresh.
-      setActiveTournament(null);
-      setMatches([]);
+       setActiveTournament(null);
+       setMatches([]);
     }
   }, [cloudConfig, fetchCloudData]);
 
@@ -155,7 +164,20 @@ const App: React.FC = () => {
     init();
   }, [refreshAllData]);
 
-  // Persistence local storage
+  // AUTO-SYNC / POLLING: Verifica alterações na cloud a cada 5 segundos
+  useEffect(() => {
+      if (!cloudConfig.enabled) return;
+      
+      const intervalId = setInterval(() => {
+          // Chamamos o refresh em background sem ativar o estado isLoading para não bloquear a UI
+          refreshAllData();
+      }, 5000); // 5 segundos
+
+      return () => clearInterval(intervalId);
+  }, [cloudConfig, refreshAllData]);
+
+
+  // Persistence local storage (Backup local)
   useEffect(() => {
     if (!isLoading) {
       localStorage.setItem('padel_players', JSON.stringify(players));
@@ -215,7 +237,32 @@ const App: React.FC = () => {
     });
   }, [players, playerRankings]);
 
-  // ... (Handlers NextRound, UpdateMatchScore, StartTournament mantêm-se iguais) ...
+  // --- Handlers ---
+
+  const handleCreateTournament = async (t: Tournament) => {
+      const newT = { ...t, status: 'scheduled' as const };
+      setActiveTournament(newT);
+      // Push imediato para a Cloud para que outros dispositivos vejam
+      await pushToCloud('tournaments', newT.id, newT);
+      // Forçar refresh para garantir consistência
+      refreshAllData();
+  };
+
+  const handleUpdateActiveTournament = async (t: Tournament) => {
+      setActiveTournament(t);
+      await pushToCloud('tournaments', t.id, t);
+  };
+
+  const handleCancelTournament = async () => {
+      if (activeTournament && window.confirm('Deseja cancelar este agendamento?')) {
+          const cancelledT = { ...activeTournament, status: 'cancelled' as const };
+          setActiveTournament(null);
+          setMatches([]);
+          setTournamentHistory(prev => [cancelledT, ...prev]);
+          await pushToCloud('tournaments', cancelledT.id, cancelledT);
+      }
+  };
+
   const handleNextRound = async () => {
     const nextRoundNumber = currentRound + 1;
     if (nextRoundNumber > 3) {
@@ -274,6 +321,7 @@ const App: React.FC = () => {
     if (activeTournament) {
         const updatedTournament = { ...activeTournament, matches: updatedMatches };
         setActiveTournament(updatedTournament);
+        // Não fazemos await aqui para não bloquear a UI rápida do score, o polling eventualmente garante consistência se falhar
         pushToCloud('tournaments', updatedTournament.id, updatedTournament);
     }
   };
@@ -293,7 +341,7 @@ const App: React.FC = () => {
       setScreen(Screen.LIVE_GAME);
   };
 
-  // ... (Restantes handlers de CRUD mantêm-se iguais) ...
+  // ... Restantes handlers de CRUD (Jogadores, Locais)
   const handleAddPlayer = async (p: Player) => { 
     setPlayers(prev => [...prev, p]); 
     await pushToCloud('players', p.id, p); 
@@ -325,27 +373,6 @@ const App: React.FC = () => {
     setLocations(prev => prev.filter(l => l.id !== id));
     await deleteFromCloud('locations', id);
   };
-  
-  const handleCreateTournament = async (t: Tournament) => {
-      const newT = { ...t, status: 'scheduled' as const };
-      setActiveTournament(newT);
-      await pushToCloud('tournaments', newT.id, newT);
-  };
-
-  const handleUpdateActiveTournament = async (t: Tournament) => {
-      setActiveTournament(t);
-      await pushToCloud('tournaments', t.id, t);
-  };
-
-  const handleCancelTournament = async () => {
-      if (activeTournament && window.confirm('Deseja cancelar este agendamento?')) {
-          const cancelledT = { ...activeTournament, status: 'cancelled' as const };
-          setActiveTournament(null);
-          setMatches([]);
-          setTournamentHistory(prev => [cancelledT, ...prev]);
-          await pushToCloud('tournaments', cancelledT.id, cancelledT);
-      }
-  };
 
   const handleFinishTournament = async () => {
     if (activeTournament) {
@@ -373,7 +400,6 @@ const App: React.FC = () => {
   const renderScreen = () => {
     if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary bg-background-dark"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">Sincronizando Cloud...</p></div>;
     
-    // Componente de ecrã atual
     let ScreenComponent;
     switch (currentScreen) {
       case Screen.HOME: ScreenComponent = <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} onCancelTournament={handleCancelTournament} history={tournamentHistory.filter(t => t.status === 'finished')} />; break;
@@ -403,7 +429,7 @@ const App: React.FC = () => {
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl border-x border-white/5 bg-background-dark">
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 pointer-events-none">
           <div className={`size-1.5 rounded-full ${cloudConfig.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Database Cloud On' : 'Modo Offline Local'}</span>
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">{cloudConfig.enabled ? 'Live Cloud Sync' : 'Offline'}</span>
         </div>
         
         {renderScreen()}
