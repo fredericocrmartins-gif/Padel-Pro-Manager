@@ -375,11 +375,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             )}
 
             <header className="flex justify-between items-start">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight mb-1">Padel Manager</h1>
-                    <p className="text-slate-400">
-                        {isLive ? 'Torneio em andamento!' : isRosterClosed ? 'Tudo pronto para começar.' : 'Fase de convocatória.'}
-                    </p>
+                <div className="flex gap-3 items-center">
+                    <img src="/favicon.svg" className="w-14 h-14 object-contain drop-shadow-2xl" alt="Logo" />
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight mb-1 leading-none">Padel <br/><span className="text-primary">Manager</span></h1>
+                        <p className="text-slate-400 text-xs mt-1">
+                            {isLive ? 'Torneio em andamento!' : isRosterClosed ? 'Tudo pronto para começar.' : 'Fase de convocatória.'}
+                        </p>
+                    </div>
                 </div>
             </header>
             
@@ -503,7 +506,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in">
-        <header className="flex justify-between items-start"><div><h1 className="text-3xl font-bold tracking-tight mb-1">Padel Manager</h1><p className="text-slate-400">Bom dia! Pronto para o próximo jogo?</p></div><button onClick={initCreation} className="bg-primary text-background-dark p-2.5 rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all"><span className="material-symbols-outlined font-bold">add</span></button></header>
+        <header className="flex justify-between items-start">
+            <div className="flex gap-3 items-center">
+                <img src="/favicon.svg" className="w-14 h-14 object-contain drop-shadow-2xl" alt="Logo" />
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight mb-1 leading-none">Padel <br/><span className="text-primary">Manager</span></h1>
+                    <p className="text-slate-400 text-xs mt-1">Pronto para o próximo jogo?</p>
+                </div>
+            </div>
+            <button onClick={initCreation} className="bg-primary text-background-dark size-12 flex items-center justify-center rounded-2xl shadow-lg shadow-primary/20 active:scale-95 transition-all">
+                <span className="material-symbols-outlined font-bold text-2xl">add</span>
+            </button>
+        </header>
         
         {StatsSection}
 
