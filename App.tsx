@@ -43,19 +43,35 @@ const App: React.FC = () => {
     try {
       const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}`, 'Content-Type': 'application/json' };
       // Adicionamos um timestamp para evitar cache agressiva no refresh manual
+      // REMOVIDO: order=created_at.desc para evitar erro se a coluna não existir. A ordenação é feita abaixo.
       const ts = `&ts=${Date.now()}`;
       const [pRes, lRes, tRes] = await Promise.all([
         fetch(`${config.url}/rest/v1/players?select=data${ts}`, { headers }).then(r => r.json()),
         fetch(`${config.url}/rest/v1/locations?select=data${ts}`, { headers }).then(r => r.json()),
-        fetch(`${config.url}/rest/v1/tournaments?select=data&order=created_at.desc${ts}`, { headers }).then(r => r.json())
+        fetch(`${config.url}/rest/v1/tournaments?select=data${ts}`, { headers }).then(r => r.json())
       ]);
+      
       if (!Array.isArray(pRes)) return null;
+
+      // Processamento e Ordenação Segura
+      const playersData = pRes.length > 0 ? pRes.map((i: any) => i.data) : [];
+      const locationsData = lRes.length > 0 ? lRes.map((i: any) => i.data) : [];
+      const tournamentsData = tRes.length > 0 ? tRes.map((i: any) => i.data) : [];
+      
+      // Ordenar torneios por data (mais recente primeiro)
+      tournamentsData.sort((a: Tournament, b: Tournament) => {
+          return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
+      });
+
       return {
-        players: pRes.length > 0 ? pRes.map((i: any) => i.data) : [],
-        locations: lRes.length > 0 ? lRes.map((i: any) => i.data) : [],
-        tournaments: tRes.map((i: any) => i.data)
+        players: playersData,
+        locations: locationsData,
+        tournaments: tournamentsData
       };
-    } catch (e) { return null; }
+    } catch (e) { 
+        console.error("Cloud Fetch Error:", e);
+        return null; 
+    }
   }, []);
 
   const pushToCloud = async (table: 'players' | 'locations' | 'tournaments', id: string, data: any) => {
@@ -66,7 +82,9 @@ const App: React.FC = () => {
         headers: { 'apikey': cloudConfig.key, 'Authorization': `Bearer ${cloudConfig.key}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify({ id, data })
       });
-    } catch (e) {}
+    } catch (e) {
+        console.error("Push Error:", e);
+    }
   };
 
   const deleteFromCloud = async (table: 'players' | 'locations' | 'tournaments', id: string) => {

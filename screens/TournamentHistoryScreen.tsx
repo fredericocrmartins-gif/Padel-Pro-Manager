@@ -17,7 +17,10 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
     return history
       .filter(t => {
         const loc = locations.find(l => l.id === t.locationId);
-        const matchesSearch = loc?.name.toLowerCase().includes(searchTerm.toLowerCase());
+        // Fallback seguro se o local não existir na lista sincronizada
+        const locName = loc?.name || 'Local Desconhecido';
+        const matchesSearch = locName.toLowerCase().includes(searchTerm.toLowerCase());
+        
         const tDate = new Date(t.date);
         const monthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
         const matchesMonth = selectedMonth === 'all' || monthYear === selectedMonth;
@@ -87,6 +90,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
         ) : (
           filteredHistory.map(t => {
             const loc = locations.find(l => l.id === t.locationId);
+            const locName = loc?.name || 'Local Desconhecido';
             return (
               <div key={t.id} className="relative group">
                 <button 
@@ -98,7 +102,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
                       <span className="text-[10px] font-black text-primary uppercase tracking-widest block mb-1">
                         {new Date(t.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </span>
-                      <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{loc?.name}</h3>
+                      <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{locName}</h3>
                     </div>
                     <div className="size-10 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                       <span className="material-symbols-outlined text-gray-500 group-hover:text-primary">chevron_right</span>
