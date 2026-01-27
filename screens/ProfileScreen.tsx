@@ -331,7 +331,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                   </section>
                   <section className="grid grid-cols-2 gap-4">
                       <div>
-                          <h3 className="text-[10px] font-bold text-emerald-500 uppercase mb-3">Vítimas</h3>
+                          <h3 className="text-[10px] font-bold text-emerald-500 uppercase mb-3">Melhor vs</h3>
                           <div className="space-y-2">
                             {stats.victims.map(r => (
                                 <div key={r.id} className="flex items-center justify-between bg-white/5 p-2 rounded-xl">
@@ -347,7 +347,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                           </div>
                       </div>
                       <div>
-                          <h3 className="text-[10px] font-bold text-red-500 uppercase mb-3">Bestas Negras</h3>
+                          <h3 className="text-[10px] font-bold text-red-500 uppercase mb-3">Pior vs</h3>
                           <div className="space-y-2">
                             {stats.blackBeasts.map(r => (
                                 <div key={r.id} className="flex items-center justify-between bg-white/5 p-2 rounded-xl">
