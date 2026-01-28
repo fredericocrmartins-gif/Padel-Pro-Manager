@@ -10,6 +10,7 @@ interface ProfileProps {
   setScreen: (screen: Screen) => void;
   onUpdatePlayer?: (player: Player) => void;
   rankingHistory?: { date: string, points: number, level: string }[];
+  onViewTournament?: (tournament: Tournament) => void;
 }
 
 type TabType = 'overview' | 'ranking' | 'relations' | 'activity';
@@ -60,7 +61,7 @@ export const renderGlobalAvatar = (p: { id: string, name: string, lastName?: str
   );
 };
 
-export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, history, setScreen, onUpdatePlayer, rankingHistory = [] }) => {
+export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, history, setScreen, onUpdatePlayer, rankingHistory = [], onViewTournament }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [drillDown, setDrillDown] = useState<{ title: string; type: 'matches' | 'tournaments'; items: any[] } | null>(null);
@@ -688,10 +689,22 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                       })
                   ) : (
                     drillDown.items.map((t: Tournament, idx: number) => (
-                        <div key={idx} className="bg-card-dark p-4 rounded-2xl border border-white/5 flex justify-between items-center">
-                            <div><p className="text-sm font-bold text-white">{new Date(t.date).toLocaleDateString('pt-PT')}</p><p className="text-[10px] text-gray-500 uppercase">{t.matches?.length || 0} Jogos</p></div>
-                            <span className="material-symbols-outlined text-primary">chevron_right</span>
-                        </div>
+                        <button 
+                             key={idx} 
+                             onClick={() => onViewTournament && onViewTournament(t)}
+                             className="w-full bg-card-dark p-4 rounded-2xl border border-white/5 flex justify-between items-center group active:scale-[0.98] transition-all text-left"
+                        >
+                            <div className="text-left">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black text-primary uppercase">{new Date(t.date).toLocaleDateString('pt-PT')}</span>
+                                    {t.status === 'finished' && <span className="size-1.5 bg-emerald-500 rounded-full"></span>}
+                                </div>
+                                <p className="text-xs text-gray-400 font-bold uppercase">{t.matches?.length || 0} Jogos • {t.duration}h</p>
+                            </div>
+                            <div className="size-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                                <span className="material-symbols-outlined text-sm">chevron_right</span>
+                            </div>
+                        </button>
                     ))
                   )}
               </div>
