@@ -13,6 +13,7 @@ interface HomeScreenProps {
   onUpdateTournament: (tournament: Tournament) => void;
   onCancelTournament: () => void;
   history: Tournament[];
+  onViewTournament: (t: Tournament) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
@@ -24,7 +25,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onAddPlayer,
     onUpdateTournament,
     onCancelTournament,
-    history
+    history,
+    onViewTournament
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [isManagingPlayers, setIsManagingPlayers] = useState(false);
@@ -523,10 +525,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         <button onClick={initCreation} className="w-full bg-gradient-to-r from-primary to-blue-600 p-6 rounded-3xl shadow-xl shadow-primary/20 flex flex-col items-start gap-1 relative overflow-hidden group active:scale-[0.98] transition-all"><div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500"><span className="material-symbols-outlined text-6xl">event_available</span></div><span className="text-background-dark font-bold uppercase tracking-widest text-[10px]">Agendamento</span><span className="text-background-dark font-bold text-xl">Criar Novo Torneio</span><span className="text-background-dark/70 text-xs">Selecione local, data e jogadores iniciais.</span></button>
         <section className="flex flex-col gap-4">
-            <div className="flex items-center justify-between px-1"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Últimos Torneios</h3><button onClick={() => setScreen(Screen.GLOBAL_STATS)} className="text-[10px] font-bold text-primary">Ver Tudo</button></div>
+            <div className="flex items-center justify-between px-1"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Últimos Torneios</h3><button onClick={() => setScreen(Screen.TOURNAMENT_HISTORY)} className="text-[10px] font-bold text-primary">Ver Tudo</button></div>
             <div className="flex flex-col gap-3">
                 {history.slice(0, 5).map((t) => (
-                    <button key={t.id} onClick={() => setScreen(Screen.GLOBAL_STATS)} className="flex items-center justify-between p-4 bg-card-dark rounded-2xl border border-white/5 hover:border-white/20 hover:bg-white/5 transition-all group"><div className="flex items-center gap-4"><div className="size-10 rounded-xl bg-white/5 flex flex-col items-center justify-center border border-white/5 group-hover:bg-primary/10 transition-colors"><span className="text-[9px] font-bold text-gray-500 uppercase">{new Date(t.date).toLocaleDateString('pt-PT', { month: 'short' })}</span><span className="text-sm font-bold text-white">{new Date(t.date).getDate()}</span></div><div className="text-left"><p className="text-sm font-bold text-white leading-tight group-hover:text-primary transition-colors">{getLocationName(t.locationId)}</p><p className="text-[10px] text-gray-500">{t.matches?.length || 0} Jogos • Finalizado</p></div></div><span className="material-symbols-outlined text-gray-600">chevron_right</span></button>
+                    <button key={t.id} onClick={() => onViewTournament(t)} className="flex items-center justify-between p-4 bg-card-dark rounded-2xl border border-white/5 hover:border-primary/20 hover:bg-white/5 transition-all group"><div className="flex items-center gap-4"><div className="size-10 rounded-xl bg-white/5 flex flex-col items-center justify-center border border-white/5 group-hover:bg-primary/10 transition-colors"><span className="text-[9px] font-bold text-gray-500 uppercase">{new Date(t.date).toLocaleDateString('pt-PT', { month: 'short' })}</span><span className="text-sm font-bold text-white">{new Date(t.date).getDate()}</span></div><div className="text-left"><p className="text-sm font-bold text-white leading-tight group-hover:text-primary transition-colors">{getLocationName(t.locationId)}</p><p className="text-[10px] text-gray-500">{t.matches?.length || 0} Jogos • Finalizado</p></div></div><span className="material-symbols-outlined text-gray-600">chevron_right</span></button>
                 ))}
                 {history.length === 0 && <div className="flex flex-col items-center justify-center py-10 opacity-30"><span className="material-symbols-outlined text-4xl mb-2">history</span><p className="text-xs">Ainda não realizou torneios.</p></div>}
             </div>

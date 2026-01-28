@@ -147,6 +147,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Corrected: replacing 'config' with 'cloudConfig' as 'config' was not defined in this scope.
   const deleteFromCloud = async (table: 'players' | 'locations' | 'tournaments', id: string) => {
     if (!cloudConfig.enabled) return;
     try {
@@ -304,7 +305,7 @@ const App: React.FC = () => {
           await pushToCloud('tournaments', cancelledT.id, cancelledT);
       }
   };
-  const handleNextRound = async () => {
+  const handleNextRound = async (initialMatches: Match[]) => {
     const nextRoundNumber = currentRound + 1;
     if (nextRoundNumber > 3) {
       setScreen(Screen.TOURNAMENT_SUMMARY);
@@ -410,7 +411,7 @@ const App: React.FC = () => {
     
     let ScreenComponent;
     switch (currentScreen) {
-      case Screen.HOME: ScreenComponent = <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} onCancelTournament={handleCancelTournament} history={tournamentHistory.filter(t => t.status === 'finished')} />; break;
+      case Screen.HOME: ScreenComponent = <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} onCancelTournament={handleCancelTournament} history={tournamentHistory.filter(t => t.status === 'finished')} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} />; break;
       case Screen.PROFILE: ScreenComponent = <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory.filter(t => t.status === 'finished')} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} />; break;
       case Screen.LIVE_GAME: ScreenComponent = <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={updateMatchScore} onNextRound={handleNextRound} currentRound={currentRound} />; break;
       case Screen.TOURNAMENT_SUMMARY: ScreenComponent = <TournamentSummaryScreen setScreen={setScreen} matches={matches} updateMatchScore={updateMatchScore} onFinish={handleFinishTournament} />; break;
