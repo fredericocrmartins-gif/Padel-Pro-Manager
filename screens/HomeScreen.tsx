@@ -78,6 +78,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const favLocationId = Object.entries(locationUsage).sort((a, b) => b[1] - a[1])[0]?.[0];
   const favLocation = locations.find(l => l.id === favLocationId)?.name || 'N/A';
 
+  const getWinnersOfTournament = (t: Tournament) => {
+    if (!t.matches || t.matches.length === 0) return null;
+    
+    const stats = new Map<string, { wins: number, diff: number, pids: string[] }>();
+    t.matches.forEach(m => {
+        const k1 = m.team1.map(p => p.id).sort().join('-');
+        const k2 = m.team2.map(p => p.id).sort().join('-');
+        if (!stats.has(k1)) stats.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p => p.id) });
+        if (!stats.has(k2)) stats.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p => p.id) });
+        const s1 = stats.get(k1)!, s2 = stats.get(k2)!;
+        s1.diff += (m.score1 - m.score2); s2.diff += (m.score2 - m.score1);
+        if (m.score1 > m.score2) s1.wins++; else if (m.score2 > m.score1) s2.wins++;
+    });
+    
+    const standings = Array.from(stats.values()).sort((a, b) => b.wins - a.wins || b.diff - a.diff);
+    if (standings.length === 0) return null;
+    
+    return standings[0].pids.map(id => players.find(p => p.id === id)).filter((p): p is Player => !!p);
+  };
+
   const initCreation = () => {
     const today = new Date().toISOString().split('T')[0];
     setDate(today);
@@ -365,21 +385,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button onClick={() => setScreen(Screen.TOURNAMENT_HISTORY)} className="text-[10px] font-black text-primary uppercase tracking-widest">Ver Tudo</button>
             </div>
             <div className="flex flex-col gap-3">
-                {history.slice(0, 3).map((t) => (
-                    <button key={t.id} onClick={() => onViewTournament(t)} className="flex items-center justify-between p-4 bg-card-dark rounded-2xl border border-white/5 active:bg-white/5 transition-all">
-                        <div className="flex items-center gap-4">
-                            <div className="size-10 rounded-xl bg-white/5 flex flex-col items-center justify-center">
-                                <span className="text-[9px] font-black text-gray-500 uppercase">{new Date(t.date).toLocaleDateString('pt-PT', { month: 'short' })}</span>
-                                <span className="text-sm font-black text-white">{new Date(t.date).getDate()}</span>
+                {history.slice(0, 3).map((t) => {
+                    const winners = getWinnersOfTournament(t);
+                    return (
+                        <button key={t.id} onClick={() => onViewTournament(t)} className="flex items-center justify-between p-4 bg-card-dark rounded-2xl border border-white/5 active:bg-white/5 transition-all group">
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className="size-10 rounded-xl bg-white/5 flex flex-col items-center justify-center shrink-0">
+                                    <span className="text-[9px] font-black text-gray-500 uppercase">{new Date(t.date).toLocaleDateString('pt-PT', { month: 'short' })}</span>
+                                    <span className="text-sm font-black text-white">{new Date(t.date).getDate()}</span>
+                                </div>
+                                <div className="text-left truncate">
+                                    <p className="text-sm font-black text-white leading-tight truncate">{locations.find(l => l.id === t.locationId)?.name || 'Local'}</p>
+                                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{t.time} • {t.duration}h</p>
+                                </div>
                             </div>
-                            <div className="text-left">
-                                <p className="text-sm font-black text-white leading-tight truncate max-w-[150px]">{locations.find(l => l.id === t.locationId)?.name || 'Local'}</p>
-                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{t.matches?.length || 0} Jogos Realizados</p>
+                            
+                            <div className="flex items-center gap-3">
+                                {winners && (
+                                    <div className="flex gap-2">
+                                        {winners.map(p => (
+                                            <div key={p.id} className="flex flex-col items-center gap-0.5">
+                                                {renderGlobalAvatar(p, 'size-7 ring-1 ring-white/10')}
+                                                <span className="text-[6px] font-black text-white/40 uppercase tracking-tighter truncate w-8 text-center">{p.nickname || p.name.split(' ')[0]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <span className="material-symbols-outlined text-gray-700 group-hover:text-primary transition-colors">chevron_right</span>
                             </div>
-                        </div>
-                        <span className="material-symbols-outlined text-gray-600">chevron_right</span>
-                    </button>
-                ))}
+                        </button>
+                    );
+                })}
             </div>
         </section>
     </div>
