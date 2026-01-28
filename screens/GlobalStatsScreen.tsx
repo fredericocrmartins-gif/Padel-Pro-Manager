@@ -41,6 +41,26 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
     }));
   };
 
+  const getWinnersOfTournament = (t: Tournament) => {
+    if (!t.matches || t.matches.length === 0) return null;
+    
+    const stats = new Map<string, { wins: number, diff: number, pids: string[] }>();
+    t.matches.forEach(m => {
+        const k1 = m.team1.map(p => p.id).sort().join('-');
+        const k2 = m.team2.map(p => p.id).sort().join('-');
+        if (!stats.has(k1)) stats.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p => p.id) });
+        if (!stats.has(k2)) stats.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p => p.id) });
+        const s1 = stats.get(k1)!, s2 = stats.get(k2)!;
+        s1.diff += (m.score1 - m.score2); s2.diff += (m.score2 - m.score1);
+        if (m.score1 > m.score2) s1.wins++; else if (m.score2 > m.score1) s2.wins++;
+    });
+    
+    const standings = Array.from(stats.values()).sort((a, b) => b.wins - a.wins || b.diff - a.diff);
+    if (standings.length === 0) return null;
+    
+    return standings[0].pids.map(id => players.find(p => p.id === id)).filter((p): p is Player => !!p);
+  };
+
   const filteredHistory = useMemo(() => {
     const finished = history.filter(t => t.status === 'finished');
     if (timeRange === 'all') return finished;
@@ -403,14 +423,31 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
                 </div>
               </div>
             ))}
-            {drillDown.type.startsWith('tournaments') && drillDown.data.map((t) => (
-              <button key={t.id} onClick={() => { onViewTournament?.(t); setDrillDown(null); }} className="w-full bg-card-dark p-4 rounded-2xl border border-white/5 flex items-center justify-between text-left">
+            {drillDown.type.startsWith('tournaments') && drillDown.data.map((t) => {
+              const winners = getWinnersOfTournament(t);
+              return (
+              <button key={t.id} onClick={() => { onViewTournament?.(t); setDrillDown(null); }} className="w-full bg-card-dark p-4 rounded-2xl border border-white/5 flex items-center justify-between text-left group">
                 <div><p className="text-[10px] font-black text-primary uppercase">{new Date(t.date).toLocaleDateString()}</p><p className="text-sm font-black text-white">{locations.find(l => l.id === t.locationId)?.name}</p></div>
-                <p className="text-xs font-black text-white">
-                  {drillDown.type === 'tournaments-eq' ? `±${t.avgDiff.toFixed(1)} diff` : drillDown.type === 'tournaments-pts' ? `${t.totalPts} pts` : `${t.matches?.length || 0} Jogos`}
-                </p>
+                
+                {drillDown.type === 'tournaments-eq' ? (
+                   <p className="text-xs font-black text-white">±{t.avgDiff.toFixed(1)} diff</p>
+                ) : drillDown.type === 'tournaments-pts' ? (
+                   <p className="text-xs font-black text-white">{t.totalPts} pts</p>
+                ) : winners ? (
+                   <div className="flex gap-2">
+                      {winners.map((p: Player) => (
+                          <div key={p.id} className="flex flex-col items-center gap-0.5">
+                              {renderGlobalAvatar(p, 'size-8 ring-1 ring-white/10')}
+                              <span className="text-[7px] font-black text-white/60 uppercase tracking-tighter truncate w-10 text-center">{p.nickname || p.name.split(' ')[0]}</span>
+                          </div>
+                      ))}
+                   </div>
+                ) : (
+                   <p className="text-xs font-black text-white">{t.matches?.length || 0} Jogos</p>
+                )}
               </button>
-            ))}
+              );
+            })}
             {drillDown.type === 'locations' && drillDown.data.map((loc, i) => (
               <div key={loc.id} className="bg-card-dark p-4 rounded-2xl border border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-4"><span className="text-[10px] font-black text-gray-700 w-4">{i+1}</span><div><p className="text-sm font-black text-white">{loc.name}</p><p className="text-[9px] text-gray-500 uppercase">{loc.type}</p></div></div>
