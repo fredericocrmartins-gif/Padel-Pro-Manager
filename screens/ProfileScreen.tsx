@@ -95,8 +95,8 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
     const myTournaments: Tournament[] = [];
     const myWonTournaments: Tournament[] = [];
     
-    const partners = new Map<string, { id: string, name: string, image: string, wins: number, games: number, matches: Match[] }>();
-    const rivals = new Map<string, { id: string, name: string, image: string, winsAgainst: number, lossesAgainst: number, games: number, matches: Match[] }>();
+    const partners = new Map<string, { id: string, name: string, lastName?: string, image: string, backgroundColor?: string, wins: number, games: number, matches: Match[] }>();
+    const rivals = new Map<string, { id: string, name: string, lastName?: string, image: string, backgroundColor?: string, winsAgainst: number, lossesAgainst: number, games: number, matches: Match[] }>();
 
     let pointsScored = 0;
     let pointsConceded = 0;
@@ -141,13 +141,13 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
                 myTeam.forEach(p => {
                     if (p.id === playerId) return;
-                    if (!partners.has(p.id)) partners.set(p.id, { id: p.id, name: p.nickname || p.name, image: p.image, wins: 0, games: 0, matches: [] });
+                    if (!partners.has(p.id)) partners.set(p.id, { id: p.id, name: p.nickname || p.name, lastName: p.lastName, image: p.image, backgroundColor: p.backgroundColor, wins: 0, games: 0, matches: [] });
                     const pd = partners.get(p.id)!;
                     pd.games++; pd.matches.push(m); if (won) pd.wins++;
                 });
 
                 oppTeam.forEach(p => {
-                    if (!rivals.has(p.id)) rivals.set(p.id, { id: p.id, name: p.nickname || p.name, image: p.image, winsAgainst: 0, lossesAgainst: 0, games: 0, matches: [] });
+                    if (!rivals.has(p.id)) rivals.set(p.id, { id: p.id, name: p.nickname || p.name, lastName: p.lastName, image: p.image, backgroundColor: p.backgroundColor, winsAgainst: 0, lossesAgainst: 0, games: 0, matches: [] });
                     const rd = rivals.get(p.id)!;
                     rd.games++; rd.matches.push(m); if (won) rd.winsAgainst++; else rd.lossesAgainst++;
                 });
@@ -190,8 +190,8 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         pointsConceded,
         maxWinStreak,
         partners: Array.from(partners.values()).sort((a,b) => b.wins - a.wins || b.games - a.games),
-        victims: rivalsList.sort((a,b) => b.balance - a.balance).slice(0, 6),
-        blackBeasts: rivalsList.sort((a,b) => a.balance - b.balance).slice(0, 6)
+        victims: rivalsList.filter(r => r.balance > 0).sort((a,b) => b.balance - a.balance).slice(0, 10),
+        blackBeasts: rivalsList.filter(r => r.balance < 0).sort((a,b) => a.balance - b.balance).slice(0, 10)
     };
   }, [playerId, history]);
 
@@ -454,48 +454,91 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
           {activeTab === 'relations' && (
               <div className="space-y-6 animate-fade-in">
                   <section>
-                      <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Melhores Parceiros</h3>
+                      <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Sinergia (Melhores Parceiros)</h3>
                       <div className="flex flex-col gap-2">
                           {stats.partners.slice(0, 4).map(p => (
                               <div key={p.id} className="bg-card-dark p-3 rounded-2xl border border-white/5 flex items-center justify-between">
-                                  <div className="flex items-center gap-3">{renderGlobalAvatar(p, 'size-9')}<div><span className="text-xs font-black text-white block">{p.name}</span><span className="text-[9px] text-gray-500 font-bold">{p.games} Jogos</span></div></div>
-                                  <div className="text-right"><p className="text-[10px] font-black text-primary">{Math.round((p.wins / p.games) * 100)}% Win Rate</p></div>
+                                  <div className="flex items-center gap-3">
+                                    {renderGlobalAvatar(p, 'size-10')}
+                                    <div>
+                                        <span className="text-xs font-black text-white block">{p.name} {p.lastName || ''}</span>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="text-[9px] text-gray-500 font-bold">{p.games} Jogos ({p.wins}V)</span>
+                                        </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-right flex flex-col items-end gap-1">
+                                      <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                          <div className="h-full bg-primary" style={{ width: `${(p.wins/p.games)*100}%` }}></div>
+                                      </div>
+                                      <p className="text-[9px] font-black text-primary">{Math.round((p.wins / p.games) * 100)}% WR</p>
+                                  </div>
                               </div>
                           ))}
+                          {stats.partners.length === 0 && (
+                            <div className="text-center p-4 rounded-xl bg-white/5 border border-dashed border-white/10 text-[10px] text-gray-500 font-bold uppercase">Sem parceiros registados</div>
+                          )}
                       </div>
                   </section>
-                  <section className="grid grid-cols-2 gap-4">
-                      <div>
-                          <h3 className="text-[10px] font-bold text-emerald-500 uppercase mb-3">Melhor vs</h3>
+                  
+                  <section>
+                      <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Confronto Direto</h3>
+                      <div className="grid grid-cols-1 gap-4">
+                          
+                          {/* Melhores (Green) */}
                           <div className="space-y-2">
-                            {stats.victims.map(r => (
-                                <div key={r.id} className="flex items-center justify-between bg-white/5 p-2 rounded-xl">
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                        {renderGlobalAvatar(r, 'size-6')}
-                                        <span className="text-[9px] font-bold text-white truncate">{r.name}</span>
-                                    </div>
-                                    <span className={`text-[8px] font-black whitespace-nowrap ml-2 ${r.balance > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                        {r.winsAgainst}V - {r.lossesAgainst}D
-                                    </span>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="material-symbols-outlined text-emerald-500 text-sm">trending_up</span>
+                                    <span className="text-[10px] font-black text-emerald-500 uppercase">Fregueses (Saldo Positivo)</span>
                                 </div>
-                            ))}
+                                {stats.victims.length === 0 ? (
+                                    <div className="p-4 rounded-xl bg-white/5 text-center text-[10px] text-gray-500 font-bold uppercase border border-dashed border-white/10">Sem vantagem significativa</div>
+                                ) : (
+                                    stats.victims.map(r => (
+                                        <div key={r.id} className="flex items-center justify-between p-3 bg-card-dark border border-emerald-500/20 rounded-2xl relative overflow-hidden">
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
+                                            <div className="flex items-center gap-3">
+                                                {renderGlobalAvatar(r, 'size-9')}
+                                                <div>
+                                                    <div className="text-xs font-black text-white">{r.name} {r.lastName || ''}</div>
+                                                    <div className="text-[9px] text-gray-500 font-bold mt-0.5">Ganhou {r.winsAgainst} / Perdeu {r.lossesAgainst}</div>
+                                                </div>
+                                            </div>
+                                            <div className="bg-emerald-500/10 text-emerald-400 font-black text-xs px-2.5 py-1.5 rounded-lg border border-emerald-500/20">
+                                                +{r.balance}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                           </div>
-                      </div>
-                      <div>
-                          <h3 className="text-[10px] font-bold text-red-500 uppercase mb-3">Pior vs</h3>
-                          <div className="space-y-2">
-                            {stats.blackBeasts.map(r => (
-                                <div key={r.id} className="flex items-center justify-between bg-white/5 p-2 rounded-xl">
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                        {renderGlobalAvatar(r, 'size-6')}
-                                        <span className="text-[9px] font-bold text-white truncate">{r.name}</span>
-                                    </div>
-                                    <span className={`text-[8px] font-black whitespace-nowrap ml-2 ${r.balance < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                                        {r.winsAgainst}V - {r.lossesAgainst}D
-                                    </span>
+
+                          {/* Piores (Red) */}
+                          <div className="space-y-2 mt-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="material-symbols-outlined text-red-500 text-sm">trending_down</span>
+                                    <span className="text-[10px] font-black text-red-500 uppercase">Pesadelos (Saldo Negativo)</span>
                                 </div>
-                            ))}
+                                {stats.blackBeasts.length === 0 ? (
+                                    <div className="p-4 rounded-xl bg-white/5 text-center text-[10px] text-gray-500 font-bold uppercase border border-dashed border-white/10">Sem desvantagem significativa</div>
+                                ) : (
+                                    stats.blackBeasts.map(r => (
+                                        <div key={r.id} className="flex items-center justify-between p-3 bg-card-dark border border-red-500/20 rounded-2xl relative overflow-hidden">
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                                            <div className="flex items-center gap-3">
+                                                {renderGlobalAvatar(r, 'size-9')}
+                                                <div>
+                                                    <div className="text-xs font-black text-white">{r.name} {r.lastName || ''}</div>
+                                                    <div className="text-[9px] text-gray-500 font-bold mt-0.5">Ganhou {r.winsAgainst} / Perdeu {r.lossesAgainst}</div>
+                                                </div>
+                                            </div>
+                                            <div className="bg-red-500/10 text-red-400 font-black text-xs px-2.5 py-1.5 rounded-lg border border-red-500/20">
+                                                {r.balance}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                           </div>
+
                       </div>
                   </section>
               </div>
