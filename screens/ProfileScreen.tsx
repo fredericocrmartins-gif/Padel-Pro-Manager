@@ -546,19 +546,69 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
           {activeTab === 'activity' && (
               <div className="space-y-4 animate-fade-in">
-                  <button onClick={() => setDrillDown({ title: 'Jogos Realizados', type: 'matches', items: stats.myMatches })} className="w-full bg-card-dark p-5 rounded-2xl border border-white/5 flex justify-between items-center group active:scale-95 transition-all">
-                      <div><p className="text-sm font-black text-white">Todos os Jogos</p><p className="text-[10px] text-gray-500 uppercase">{stats.myMatches.length} Entradas</p></div>
-                      <span className="material-symbols-outlined text-primary">chevron_right</span>
+                  <button onClick={() => setDrillDown({ title: 'Jogos Realizados', type: 'matches', items: stats.myMatches })} className="w-full bg-card-dark p-6 rounded-3xl border border-white/5 relative overflow-hidden group text-left active:scale-[0.98] transition-all shadow-lg">
+                      <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                          <span className="material-symbols-outlined text-8xl">sports_tennis</span>
+                      </div>
+                      <div className="relative z-10">
+                          <h3 className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Carreira</h3>
+                          <p className="text-2xl font-black text-white mb-4">Histórico de Jogos</p>
+                          
+                          <div className="flex gap-6">
+                              <div>
+                                  <span className="text-3xl font-black text-white block">{stats.totalMatches}</span>
+                                  <span className="text-[9px] font-bold text-gray-500 uppercase">Jogos</span>
+                              </div>
+                              <div className="w-px bg-white/10"></div>
+                              <div>
+                                  <span className="text-3xl font-black text-emerald-400 block">{stats.totalWins}</span>
+                                  <span className="text-[9px] font-bold text-gray-500 uppercase">Vitórias</span>
+                              </div>
+                              <div className="w-px bg-white/10"></div>
+                              <div>
+                                  <span className="text-3xl font-black text-blue-400 block">{stats.winRate}%</span>
+                                  <span className="text-[9px] font-bold text-gray-500 uppercase">Win Rate</span>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="absolute bottom-4 right-4 bg-white/5 p-2 rounded-full border border-white/10 group-hover:bg-primary group-hover:text-background-dark group-hover:border-primary transition-all">
+                          <span className="material-symbols-outlined">arrow_forward</span>
+                      </div>
                   </button>
-                  <button onClick={() => setDrillDown({ title: 'Torneios Disputados', type: 'tournaments', items: stats.myTournaments })} className="w-full bg-card-dark p-5 rounded-2xl border border-white/5 flex justify-between items-center group active:scale-95 transition-all">
-                      <div><p className="text-sm font-black text-white">Torneios</p><p className="text-[10px] text-gray-500 uppercase">{stats.myTournaments.length} Participações</p></div>
-                      <span className="material-symbols-outlined text-primary">chevron_right</span>
+
+                  <button onClick={() => setDrillDown({ title: 'Torneios Disputados', type: 'tournaments', items: stats.myTournaments })} className="w-full bg-card-dark p-6 rounded-3xl border border-white/5 relative overflow-hidden group text-left active:scale-[0.98] transition-all shadow-lg">
+                      <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                          <span className="material-symbols-outlined text-8xl">emoji_events</span>
+                      </div>
+                      <div className="relative z-10">
+                          <h3 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Competição</h3>
+                          <p className="text-2xl font-black text-white mb-4">Torneios</p>
+                          
+                          <div className="flex gap-6">
+                              <div>
+                                  <span className="text-3xl font-black text-white block">{stats.myTournaments.length}</span>
+                                  <span className="text-[9px] font-bold text-gray-500 uppercase">Participações</span>
+                              </div>
+                              <div className="w-px bg-white/10"></div>
+                              <div>
+                                  <span className="text-3xl font-black text-yellow-500 block">{stats.myWonTournaments.length}</span>
+                                  <span className="text-[9px] font-bold text-gray-500 uppercase">Títulos</span>
+                              </div>
+                               <div className="w-px bg-white/10"></div>
+                               <div>
+                                   <span className="text-3xl font-black text-gray-400 block">{stats.myTournaments.length > 0 ? Math.round((stats.myWonTournaments.length / stats.myTournaments.length) * 100) : 0}%</span>
+                                   <span className="text-[9px] font-bold text-gray-500 uppercase">Eficácia</span>
+                               </div>
+                          </div>
+                      </div>
+                      <div className="absolute bottom-4 right-4 bg-white/5 p-2 rounded-full border border-white/10 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-all">
+                          <span className="material-symbols-outlined">arrow_forward</span>
+                      </div>
                   </button>
               </div>
           )}
-      </div>
 
-      {isEditing && (
+          {isEditing && (
           <div className="fixed inset-0 z-[110] bg-background-dark/95 backdrop-blur-xl animate-fade-in flex flex-col p-4 overflow-y-auto">
               <header className="flex items-center justify-between mb-8 shrink-0">
                   <h2 className="text-xl font-bold">Editar Perfil</h2>
