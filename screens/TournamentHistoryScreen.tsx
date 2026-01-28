@@ -14,7 +14,8 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
   const [showCancelled, setShowCancelled] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  // Definido como true por defeito para ser visível imediatamente
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(true);
 
   // Lógica do Calendário
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -28,7 +29,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
     const firstDay = firstDayOfMonth(currentYear, currentMonth);
     const daysArray = [];
     
-    // Espaços vazios para alinhar o primeiro dia
+    // Espaços vazios para alinhar o primeiro dia (considerando Domingo como 0)
     for (let i = 0; i < firstDay; i++) {
       daysArray.push(null);
     }
@@ -43,7 +44,8 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
   const tournamentDates = useMemo(() => {
     const dates = new Set<string>();
     history.forEach(t => {
-      if (t.status === 'finished' || (showCancelled && t.status === 'cancelled')) {
+      const statusMatch = t.status === 'finished' || (showCancelled && t.status === 'cancelled');
+      if (statusMatch) {
         const d = new Date(t.date);
         if (d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
           dates.add(d.getDate().toString());
@@ -132,7 +134,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
         </div>
 
         {/* Grelha do Calendário (Colapsável) */}
-        <div className={`transition-all duration-500 ease-in-out px-6 ${isCalendarExpanded ? 'max-h-[400px] opacity-100 py-6' : 'max-h-0 opacity-0 py-0'}`}>
+        <div className={`transition-all duration-500 ease-in-out px-6 ${isCalendarExpanded ? 'max-h-[400px] opacity-100 py-6' : 'max-h-0 opacity-0 py-0 overflow-hidden'}`}>
           <div className="grid grid-cols-7 gap-1 mb-2">
             {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
               <div key={i} className="text-center text-[8px] font-black text-gray-600 uppercase mb-2">{day}</div>
@@ -155,8 +157,8 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
                   `}
                 >
                   {day}
-                  {hasTournament && !isSelected && (
-                    <div className="absolute bottom-1.5 size-1 rounded-full bg-primary shadow-[0_0_5px_rgba(96,122,251,0.5)]"></div>
+                  {hasTournament && (
+                    <div className={`absolute bottom-1.5 size-1.5 rounded-full ${isSelected ? 'bg-background-dark' : 'bg-primary shadow-[0_0_5px_rgba(96,122,251,0.5)]'}`}></div>
                   )}
                 </button>
               );
@@ -190,7 +192,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-              {selectedDay ? `Resultados para dia ${selectedDay}` : 'Lista de Torneios'}
+              {selectedDay ? `Torneios em ${selectedDay} de ${calendarDate.toLocaleDateString('pt-PT', { month: 'long' })}` : 'Lista de Torneios'}
             </h3>
             <span className="text-[10px] font-bold text-primary">{filteredHistory.length} encontrados</span>
           </div>

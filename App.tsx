@@ -147,15 +147,19 @@ const App: React.FC = () => {
     }
   };
 
-  // Corrected: replacing 'config' with 'cloudConfig' as 'config' was not defined in this scope.
   const deleteFromCloud = async (table: 'players' | 'locations' | 'tournaments', id: string) => {
     if (!cloudConfig.enabled) return;
     try {
       await fetch(`${cloudConfig.url}/rest/v1/${table}?id=eq.${id}`, {
         method: 'DELETE',
-        headers: { 'apikey': cloudConfig.key, 'Authorization': `Bearer ${cloudConfig.key}` }
+        headers: { 
+          'apikey': cloudConfig.key, 
+          'Authorization': `Bearer ${cloudConfig.key}` 
+        }
       });
-    } catch (e) {}
+    } catch (e) {
+      console.error("Delete Error:", e);
+    }
   };
 
   // Lógica centralizada de atualização de dados
@@ -305,7 +309,7 @@ const App: React.FC = () => {
           await pushToCloud('tournaments', cancelledT.id, cancelledT);
       }
   };
-  const handleNextRound = async (initialMatches: Match[]) => {
+  const handleNextRound = async () => {
     const nextRoundNumber = currentRound + 1;
     if (nextRoundNumber > 3) {
       setScreen(Screen.TOURNAMENT_SUMMARY);
