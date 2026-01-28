@@ -14,6 +14,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
   const [showCancelled, setShowCancelled] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
 
   // Lógica do Calendário
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -95,65 +96,83 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
         </button>
       </header>
 
-      {/* Calendário Interativo */}
-      <section className="bg-card-dark rounded-[2.5rem] border border-white/5 p-6 shadow-xl overflow-hidden relative group">
+      {/* Calendário Interativo com Expansão/Colapso */}
+      <section className="bg-card-dark rounded-[2.5rem] border border-white/5 shadow-xl overflow-hidden relative transition-all duration-500 ease-in-out">
         <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
           <span className="material-symbols-outlined text-8xl">calendar_month</span>
         </div>
 
-        <div className="flex items-center justify-between mb-6 relative z-10">
-          <button onClick={() => changeMonth(-1)} className="size-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-            <span className="material-symbols-outlined text-xl">chevron_left</span>
-          </button>
-          <div className="text-center">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest">
-              {calendarDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
-            </h3>
+        {/* Header do Calendário */}
+        <div className="flex items-center justify-between p-6 relative z-10 border-b border-white/5">
+          <div className="flex items-center gap-4">
+             <button onClick={() => changeMonth(-1)} className="size-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+               <span className="material-symbols-outlined text-xl">chevron_left</span>
+             </button>
+             <div className="text-left">
+               <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
+                 {calendarDate.toLocaleDateString('pt-PT', { year: 'numeric' })}
+               </h3>
+               <h3 className="text-sm font-black text-white uppercase tracking-widest leading-none">
+                 {calendarDate.toLocaleDateString('pt-PT', { month: 'long' })}
+               </h3>
+             </div>
+             <button onClick={() => changeMonth(1)} className="size-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+               <span className="material-symbols-outlined text-xl">chevron_right</span>
+             </button>
           </div>
-          <button onClick={() => changeMonth(1)} className="size-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-            <span className="material-symbols-outlined text-xl">chevron_right</span>
+          
+          {/* Botão de Expansão */}
+          <button 
+            onClick={() => setIsCalendarExpanded(!isCalendarExpanded)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isCalendarExpanded ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-400'}`}
+          >
+            <span className="material-symbols-outlined text-sm">{isCalendarExpanded ? 'expand_less' : 'expand_more'}</span>
+            {isCalendarExpanded ? 'Recolher' : 'Calendário'}
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
-            <div key={i} className="text-center text-[8px] font-black text-gray-600 uppercase mb-2">{day}</div>
-          ))}
-          {days.map((day, i) => {
-            const hasTournament = day !== null && tournamentDates.has(day.toString());
-            const isSelected = selectedDay === day;
-            const isToday = day !== null && new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
-            
-            return (
-              <button
-                key={i}
-                disabled={day === null}
-                onClick={() => setSelectedDay(isSelected ? null : day)}
-                className={`
-                  relative h-10 rounded-xl flex flex-col items-center justify-center transition-all text-[10px] font-bold
-                  ${day === null ? 'opacity-0' : 'hover:bg-white/5'}
-                  ${isSelected ? 'bg-primary text-background-dark scale-110 shadow-lg shadow-primary/20 z-10' : 'text-gray-400'}
-                  ${isToday && !isSelected ? 'border border-primary/30 text-primary' : ''}
-                `}
-              >
-                {day}
-                {hasTournament && !isSelected && (
-                  <div className="absolute bottom-1.5 size-1 rounded-full bg-primary shadow-[0_0_5px_rgba(96,122,251,0.5)]"></div>
-                )}
-              </button>
-            );
-          })}
+        {/* Grelha do Calendário (Colapsável) */}
+        <div className={`transition-all duration-500 ease-in-out px-6 ${isCalendarExpanded ? 'max-h-[400px] opacity-100 py-6' : 'max-h-0 opacity-0 py-0'}`}>
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
+              <div key={i} className="text-center text-[8px] font-black text-gray-600 uppercase mb-2">{day}</div>
+            ))}
+            {days.map((day, i) => {
+              const hasTournament = day !== null && tournamentDates.has(day.toString());
+              const isSelected = selectedDay === day;
+              const isToday = day !== null && new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
+              
+              return (
+                <button
+                  key={i}
+                  disabled={day === null}
+                  onClick={() => setSelectedDay(isSelected ? null : day)}
+                  className={`
+                    relative h-10 rounded-xl flex flex-col items-center justify-center transition-all text-[10px] font-bold
+                    ${day === null ? 'opacity-0' : 'hover:bg-white/5'}
+                    ${isSelected ? 'bg-primary text-background-dark scale-110 shadow-lg shadow-primary/20 z-10' : 'text-gray-400'}
+                    ${isToday && !isSelected ? 'border border-primary/30 text-primary' : ''}
+                  `}
+                >
+                  {day}
+                  {hasTournament && !isSelected && (
+                    <div className="absolute bottom-1.5 size-1 rounded-full bg-primary shadow-[0_0_5px_rgba(96,122,251,0.5)]"></div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          
+          {selectedDay && (
+            <button 
+              onClick={() => setSelectedDay(null)}
+              className="w-full mt-4 py-2 bg-white/5 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+              Limpar Filtro de Data
+            </button>
+          )}
         </div>
-        
-        {selectedDay && (
-          <button 
-            onClick={() => setSelectedDay(null)}
-            className="w-full mt-4 py-2 bg-white/5 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-sm">close</span>
-            Limpar Filtro de Data
-          </button>
-        )}
       </section>
 
       <div className="space-y-4">
@@ -177,9 +196,10 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
           </div>
 
           {filteredHistory.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 opacity-30">
+            <div className="flex flex-col items-center justify-center py-20 opacity-30 text-center">
               <span className="material-symbols-outlined text-6xl mb-4">history_toggle_off</span>
               <p className="text-sm font-bold">Nenhum registo encontrado</p>
+              {selectedDay && <p className="text-[10px] uppercase mt-1">Tente selecionar outro dia ou limpar o filtro.</p>}
             </div>
           ) : (
             filteredHistory.map(t => {
