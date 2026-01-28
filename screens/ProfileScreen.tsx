@@ -157,8 +157,6 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
     const rivalsList = Array.from(rivals.values()).map(r => ({ ...r, balance: r.winsAgainst - r.lossesAgainst }));
 
-    // ORDENAÇÃO CRONOLÓGICA: Da esquerda para a direita (Mais antigo -> Mais recente)
-    // Regra: Por data e por ronda (1, 2, 3)
     const sortedMatches = [...myMatches].sort((a, b) => {
         const timeA = new Date(a.date).getTime();
         const timeB = new Date(b.date).getTime();
@@ -198,7 +196,6 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
   if (!player || !stats) return null;
 
   const renderPerformanceChart = () => {
-    // Últimos 10 jogos ordenados cronologicamente (Esquerda = Antigo, Direita = Novo)
     const last10 = stats.myMatches.slice(-10);
     if (last10.length === 0) return null;
 
@@ -308,15 +305,10 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
             
             <div className="relative h-[220px]">
                 <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height + 40}`} className="overflow-visible">
-                    {/* Linhas de grelha horizontais */}
                     <line x1={paddingX} y1={paddingY} x2={width-paddingX} y2={paddingY} stroke="white" strokeOpacity="0.05" strokeDasharray="4" />
                     <line x1={paddingX} y1={height/2} x2={width-paddingX} y2={height/2} stroke="white" strokeOpacity="0.05" strokeDasharray="4" />
                     <line x1={paddingX} y1={height-paddingY} x2={width-paddingX} y2={height-paddingY} stroke="white" strokeOpacity="0.05" strokeDasharray="4" />
-
-                    {/* Linha do Gráfico */}
                     <path d={d} fill="none" stroke="#607AFB" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                    
-                    {/* Pontos Interativos */}
                     {points.map((p, i) => {
                       const isSelected = activeRankIndex === i;
                       return (
@@ -340,8 +332,6 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                         </g>
                       );
                     })}
-
-                    {/* Labels de Datas no Eixo X */}
                     {points.length > 0 && (
                       <>
                         <text x={points[0].x} y={height + 25} textAnchor="start" fontSize="8" fontWeight="900" fill="#4b5563" className="uppercase tracking-tighter">{points[0].data.date}</text>
@@ -484,8 +474,6 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                   <section>
                       <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Confronto Direto</h3>
                       <div className="grid grid-cols-1 gap-4">
-                          
-                          {/* Melhores (Green) */}
                           <div className="space-y-2">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="material-symbols-outlined text-emerald-500 text-sm">trending_up</span>
@@ -512,7 +500,6 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                                 )}
                           </div>
 
-                          {/* Piores (Red) */}
                           <div className="space-y-2 mt-2">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="material-symbols-outlined text-red-500 text-sm">trending_down</span>
@@ -607,8 +594,9 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                   </button>
               </div>
           )}
+      </div>
 
-          {isEditing && (
+      {isEditing && (
           <div className="fixed inset-0 z-[110] bg-background-dark/95 backdrop-blur-xl animate-fade-in flex flex-col p-4 overflow-y-auto">
               <header className="flex items-center justify-between mb-8 shrink-0">
                   <h2 className="text-xl font-bold">Editar Perfil</h2>
