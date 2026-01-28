@@ -280,12 +280,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         <p className="text-slate-400 text-xs mt-1">{isLive ? 'Em direto!' : 'Fase de convocatória'}</p>
                     </div>
                 </div>
-                {!isLive && (
-                    <div className="flex gap-2">
-                         <button onClick={initEdit} className="bg-white/5 text-white size-10 flex items-center justify-center rounded-xl border border-white/10 active:scale-95 transition-all"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                         <button onClick={onCancelTournament} className="bg-red-500/10 text-red-500 size-10 flex items-center justify-center rounded-xl border border-red-500/20 active:scale-95 transition-all"><span className="material-symbols-outlined text-[20px]">delete</span></button>
-                    </div>
-                )}
             </header>
 
             {StatsSection}
@@ -333,16 +327,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <span className="material-symbols-outlined font-black">sports_tennis</span>
                     IR PARA JOGO
                 </button>
-            ) : isRosterClosed ? (
-                <button onClick={() => setScreen(Screen.TEAM_SETUP)} className="w-full bg-emerald-500 text-background-dark font-black py-5 rounded-2xl shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined font-black">shuffle</span>
-                    REALIZAR SORTEIO
-                </button>
             ) : (
-                <button onClick={() => setIsManagingPlayers(true)} className="w-full bg-white/5 border border-white/10 font-bold py-5 rounded-2xl flex items-center justify-center gap-2 active:bg-white/10 transition-all">
-                    <span className="material-symbols-outlined font-black">group_add</span>
-                    GERIR CONVOCATÓRIA
-                </button>
+                <div className="space-y-3">
+                    {isRosterClosed ? (
+                        <button onClick={() => setScreen(Screen.TEAM_SETUP)} className="w-full bg-emerald-500 text-background-dark font-black py-5 rounded-2xl shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2">
+                            <span className="material-symbols-outlined font-black">shuffle</span>
+                            REALIZAR SORTEIO
+                        </button>
+                    ) : (
+                        <button onClick={() => setIsManagingPlayers(true)} className="w-full bg-white/5 border border-white/10 font-bold py-5 rounded-2xl flex items-center justify-center gap-2 active:bg-white/10 transition-all">
+                            <span className="material-symbols-outlined font-black">group_add</span>
+                            GERIR CONVOCATÓRIA
+                        </button>
+                    )}
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={initEdit} className="bg-card-dark border border-white/10 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all">
+                            <span className="material-symbols-outlined text-lg">edit</span>
+                            Editar
+                        </button>
+                        <button onClick={onCancelTournament} className="bg-red-500/10 border border-red-500/20 text-red-500 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all">
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );
