@@ -24,9 +24,22 @@ interface PlayerStats extends Player {
   balance: number;
 }
 
+type SortKey = keyof Pick<PlayerStats, 'gamesPlayed' | 'wins' | 'losses' | 'balance' | 'pointsScored' | 'pointsConceded' | 'tournamentsWon'>;
+
 export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], players = [], locations = [], onViewTournament, onViewPlayer }) => {
   const [timeRange, setTimeRange] = useState<'all' | 'month' | 'year'>('all');
   const [drillDown, setDrillDown] = useState<{ title: string; type: string; data: any[] } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ 
+    key: 'tournamentsWon', 
+    direction: 'desc' 
+  });
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
 
   const filteredHistory = useMemo(() => {
     const finished = history.filter(t => t.status === 'finished');
@@ -65,7 +78,6 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
       const tPlayers = new Set<string>();
       
       if (t.matches) {
-        // Objeto para calcular o vencedor do torneio
         const teamResults = new Map<string, { wins: number, diff: number, ids: string[] }>();
 
         t.matches.forEach(m => {
@@ -112,7 +124,6 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
           });
         });
 
-        // Determinar o vencedor do torneio (Mesma lógica do HistoryDetail)
         const sortedStandings = Array.from(teamResults.values()).sort((a, b) => b.wins - a.wins || b.diff - a.diff);
         if (sortedStandings.length > 0) {
           const winners = sortedStandings[0].ids;
@@ -151,7 +162,7 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
       totalTournaments: filteredHistory.length,
       totalMatches,
       totalPoints,
-      activePlayers: activePlayers.sort((a,b) => (b.tournamentsWon - a.tournamentsWon) || (b.balance - a.balance)),
+      activePlayers,
       mostWins: [...activePlayers].sort((a,b) => b.wins - a.wins),
       mostAttendance: [...activePlayers].sort((a,b) => b.tournamentsPlayed - a.tournamentsPlayed),
       mostPointsELO: [...activePlayers].sort((a,b) => (b.rankingPoints || 0) - (a.rankingPoints || 0)),
@@ -165,6 +176,19 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
     };
   }, [filteredHistory, players, locations]);
 
+  // Novo Memo para ordenar os jogadores ativos dinamicamente
+  const sortedActivePlayers = useMemo(() => {
+    return [...stats.activePlayers].sort((a, b) => {
+      const valA = a[sortConfig.key] as number;
+      const valB = b[sortConfig.key] as number;
+      
+      if (sortConfig.direction === 'desc') {
+        return valB - valA || (b.rankingPoints || 0) - (a.rankingPoints || 0);
+      }
+      return valA - valB || (a.rankingPoints || 0) - (b.rankingPoints || 0);
+    });
+  }, [stats.activePlayers, sortConfig]);
+
   const StatBox = ({ label, value, sub, icon, color, onClick }: any) => (
     <button onClick={onClick} className="bg-card-dark p-4 rounded-3xl border border-white/5 flex flex-col gap-2 text-left active:scale-95 transition-all group">
       <div className={`size-10 rounded-2xl bg-${color}/10 flex items-center justify-center text-${color} group-hover:bg-${color}/20 transition-colors`}>
@@ -177,6 +201,27 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
       </div>
     </button>
   );
+
+  const SortHeader = ({ label, sortKey, align = 'center' }: { label: string, sortKey: SortKey, align?: 'center' | 'left' | 'right' }) => {
+    const isActive = sortConfig.key === sortKey;
+    return (
+      <th 
+        onClick={() => handleSort(sortKey)} 
+        className={`px-2 py-3 text-[8px] font-black uppercase cursor-pointer select-none transition-colors active:bg-white/10 ${isActive ? 'text-primary' : 'text-gray-500'}`}
+      >
+        <div className={`flex items-center gap-0.5 ${align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'}`}>
+          {label}
+          {isActive ? (
+            <span className="material-symbols-outlined text-[12px]">
+              {sortConfig.direction === 'desc' ? 'keyboard_arrow_down' : 'keyboard_arrow_up'}
+            </span>
+          ) : (
+            <span className="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-100">unfold_more</span>
+          )}
+        </div>
+      </th>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in bg-background-dark min-h-screen">
@@ -225,11 +270,11 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
         </div>
       </section>
 
-      {/* Tabela de Ranking Geral */}
+      {/* Tabela de Ranking Geral com Ordenação */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Ranking de Dados dos Jogadores</h3>
-          <span className="text-[8px] text-primary font-bold uppercase">Ord. Títulos</span>
+          <span className="text-[8px] text-primary font-bold uppercase tracking-wider">Clique nos títulos para ordenar</span>
         </div>
         <div className="bg-card-dark rounded-[2rem] border border-white/5 shadow-xl overflow-hidden">
           <div className="overflow-x-auto hide-scrollbar">
@@ -237,18 +282,27 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
               <thead>
                 <tr className="bg-white/5">
                   <th className="px-4 py-3 text-[8px] font-black text-gray-500 uppercase">Jogador</th>
-                  <th className="px-2 py-3 text-[8px] font-black text-gray-500 uppercase text-center">J</th>
-                  <th className="px-2 py-3 text-[8px] font-black text-gray-500 uppercase text-center">V</th>
-                  <th className="px-2 py-3 text-[8px] font-black text-gray-500 uppercase text-center">D</th>
-                  <th className="px-2 py-3 text-[8px] font-black text-primary uppercase text-center">S</th>
-                  <th className="px-2 py-3 text-[8px] font-black text-emerald-400 uppercase text-center">PG</th>
-                  <th className="px-2 py-3 text-[8px] font-black text-red-400 uppercase text-center">PS</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-yellow-500 uppercase text-center bg-yellow-500/10">Tít</th>
+                  <SortHeader label="J" sortKey="gamesPlayed" />
+                  <SortHeader label="V" sortKey="wins" />
+                  <SortHeader label="D" sortKey="losses" />
+                  <SortHeader label="S" sortKey="balance" />
+                  <SortHeader label="PG" sortKey="pointsScored" />
+                  <SortHeader label="PS" sortKey="pointsConceded" />
+                  <th onClick={() => handleSort('tournamentsWon')} className={`px-3 py-3 text-[8px] font-black uppercase text-center cursor-pointer transition-colors ${sortConfig.key === 'tournamentsWon' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-yellow-500/5 text-gray-500'}`}>
+                    <div className="flex items-center justify-center gap-0.5">
+                      Tít
+                      {sortConfig.key === 'tournamentsWon' && (
+                        <span className="material-symbols-outlined text-[12px]">
+                          {sortConfig.direction === 'desc' ? 'keyboard_arrow_down' : 'keyboard_arrow_up'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {stats.activePlayers.map((p, idx) => (
-                  <tr key={p.id} className={`${idx === 0 ? 'bg-primary/5' : ''} active:bg-white/5 transition-colors`} onClick={() => onViewPlayer?.(p.id)}>
+                {sortedActivePlayers.map((p, idx) => (
+                  <tr key={p.id} className={`${idx === 0 && sortConfig.key === 'tournamentsWon' ? 'bg-primary/5' : ''} active:bg-white/5 transition-colors`} onClick={() => onViewPlayer?.(p.id)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-[9px] font-black text-gray-700 w-3">{idx + 1}</span>
@@ -256,15 +310,15 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
                         <span className="text-[10px] font-bold text-white truncate max-w-[60px]">{p.nickname || p.name.split(' ')[0]}</span>
                       </div>
                     </td>
-                    <td className="px-2 py-3 text-[10px] font-bold text-white text-center">{p.gamesPlayed}</td>
-                    <td className="px-2 py-3 text-[10px] font-bold text-emerald-400 text-center">{p.wins}</td>
-                    <td className="px-2 py-3 text-[10px] font-bold text-red-400 text-center">{p.losses}</td>
-                    <td className={`px-2 py-3 text-[10px] font-black text-center ${p.balance >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                    <td className={`px-2 py-3 text-[10px] font-bold text-center ${sortConfig.key === 'gamesPlayed' ? 'text-primary' : 'text-white'}`}>{p.gamesPlayed}</td>
+                    <td className={`px-2 py-3 text-[10px] font-bold text-center ${sortConfig.key === 'wins' ? 'text-emerald-400' : 'text-emerald-400/70'}`}>{p.wins}</td>
+                    <td className={`px-2 py-3 text-[10px] font-bold text-center ${sortConfig.key === 'losses' ? 'text-red-400' : 'text-red-400/70'}`}>{p.losses}</td>
+                    <td className={`px-2 py-3 text-[10px] font-black text-center ${sortConfig.key === 'balance' ? 'text-primary' : p.balance >= 0 ? 'text-white/80' : 'text-red-500'}`}>
                       {p.balance > 0 ? `+${p.balance}` : p.balance}
                     </td>
-                    <td className="px-2 py-3 text-[10px] font-bold text-emerald-500/70 text-center">{p.pointsScored}</td>
-                    <td className="px-2 py-3 text-[10px] font-bold text-red-500/70 text-center">{p.pointsConceded}</td>
-                    <td className="px-3 py-3 text-[10px] font-black text-yellow-500 text-center bg-yellow-500/10">{p.tournamentsWon}</td>
+                    <td className={`px-2 py-3 text-[10px] font-bold text-center ${sortConfig.key === 'pointsScored' ? 'text-emerald-500' : 'text-emerald-500/50'}`}>{p.pointsScored}</td>
+                    <td className={`px-2 py-3 text-[10px] font-bold text-center ${sortConfig.key === 'pointsConceded' ? 'text-red-500' : 'text-red-500/50'}`}>{p.pointsConceded}</td>
+                    <td className={`px-3 py-3 text-[10px] font-black text-center ${sortConfig.key === 'tournamentsWon' ? 'text-yellow-500 bg-yellow-500/10' : 'text-yellow-500/60 bg-yellow-500/5'}`}>{p.tournamentsWon}</td>
                   </tr>
                 ))}
               </tbody>
