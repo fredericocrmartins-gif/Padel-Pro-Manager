@@ -17,6 +17,10 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  
+  // Estados para filtro por intervalo de datas
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Lógica do Calendário
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -63,23 +67,52 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
         const matchesSearch = locName.toLowerCase().includes(searchTerm.toLowerCase());
         
         const tDate = new Date(t.date);
+        
+        // Filtro por dia único (Calendário)
         const matchesDay = selectedDay === null || (
           tDate.getDate() === selectedDay && 
           tDate.getMonth() === currentMonth && 
           tDate.getFullYear() === currentYear
         );
+
+        // Filtro por Intervalo
+        let matchesRange = true;
+        if (!selectedDay && (startDate || endDate)) {
+             // Comparação direta de strings YYYY-MM-DD
+             if (startDate && t.date < startDate) matchesRange = false;
+             if (endDate && t.date > endDate) matchesRange = false;
+        }
         
         const statusMatch = t.status === 'finished' || (showCancelled && t.status === 'cancelled');
         
-        return matchesSearch && matchesDay && statusMatch;
+        return matchesSearch && matchesDay && matchesRange && statusMatch;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [history, searchTerm, selectedDay, currentMonth, currentYear, locations, showCancelled]);
+  }, [history, searchTerm, selectedDay, currentMonth, currentYear, locations, showCancelled, startDate, endDate]);
 
   const changeMonth = (offset: number) => {
     const newDate = new Date(currentYear, currentMonth + offset, 1);
     setCalendarDate(newDate);
     setSelectedDay(null);
+  };
+
+  const handleDayClick = (day: number | null) => {
+      const newDay = selectedDay === day ? null : day;
+      setSelectedDay(newDay);
+      if (newDay !== null) {
+          setStartDate('');
+          setEndDate('');
+      }
+  };
+
+  const handleStartDateChange = (val: string) => {
+      setStartDate(val);
+      if (val) setSelectedDay(null);
+  };
+
+  const handleEndDateChange = (val: string) => {
+      setEndDate(val);
+      if (val) setSelectedDay(null);
   };
 
   const getWinnersOfTournament = (t: Tournament) => {
@@ -100,6 +133,14 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
     if (standings.length === 0) return null;
     
     return standings[0].pids.map(id => players.find(p => p.id === id)).filter((p): p is Player => !!p);
+  };
+
+  const getListTitle = () => {
+      if (selectedDay) return `Torneios em ${selectedDay} de ${calendarDate.toLocaleDateString('pt-PT', { month: 'long' })}`;
+      if (startDate && endDate) return `Torneios de ${new Date(startDate).toLocaleDateString('pt-PT')} a ${new Date(endDate).toLocaleDateString('pt-PT')}`;
+      if (startDate) return `Torneios desde ${new Date(startDate).toLocaleDateString('pt-PT')}`;
+      if (endDate) return `Torneios até ${new Date(endDate).toLocaleDateString('pt-PT')}`;
+      return 'Lista de Torneios';
   };
 
   return (
@@ -146,11 +187,11 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isCalendarExpanded ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-400'}`}
           >
             <span className="material-symbols-outlined text-sm">{isCalendarExpanded ? 'expand_less' : 'expand_more'}</span>
-            {isCalendarExpanded ? 'Recolher' : 'Calendário'}
+            {isCalendarExpanded ? 'Recolher' : 'Filtros'}
           </button>
         </div>
 
-        <div className={`transition-all duration-500 ease-in-out px-6 ${isCalendarExpanded ? 'max-h-[400px] opacity-100 py-6' : 'max-h-0 opacity-0 py-0 overflow-hidden'}`}>
+        <div className={`transition-all duration-500 ease-in-out px-6 ${isCalendarExpanded ? 'max-h-[800px] opacity-100 py-6' : 'max-h-0 opacity-0 py-0 overflow-hidden'}`}>
           <div className="grid grid-cols-7 gap-1 mb-2">
             {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
               <div key={i} className="text-center text-[8px] font-black text-gray-600 uppercase mb-2">{day}</div>
@@ -164,7 +205,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
                 <button
                   key={i}
                   disabled={day === null}
-                  onClick={() => setSelectedDay(isSelected ? null : day)}
+                  onClick={() => handleDayClick(day)}
                   className={`
                     relative h-10 rounded-xl flex flex-col items-center justify-center transition-all text-[10px] font-bold
                     ${day === null ? 'opacity-0' : 'hover:bg-white/5'}
@@ -180,14 +221,30 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
               );
             })}
           </div>
+
+          <div className="h-px bg-white/5 my-4"></div>
+
+          <div className="space-y-2">
+            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Intervalo de Datas</p>
+            <div className="flex gap-3">
+                <div className="flex-1 space-y-1">
+                    <label className="text-[8px] font-bold text-gray-600 uppercase">De</label>
+                    <input type="date" value={startDate} onChange={e => handleStartDateChange(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                </div>
+                <div className="flex-1 space-y-1">
+                    <label className="text-[8px] font-bold text-gray-600 uppercase">Até</label>
+                    <input type="date" value={endDate} onChange={e => handleEndDateChange(e.target.value)} className="w-full bg-background-dark border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                </div>
+            </div>
+          </div>
           
-          {selectedDay && (
+          {(selectedDay || startDate || endDate) && (
             <button 
-              onClick={() => setSelectedDay(null)}
+              onClick={() => { setSelectedDay(null); setStartDate(''); setEndDate(''); }}
               className="w-full mt-4 py-2 bg-white/5 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-sm">close</span>
-              Limpar Filtro de Data
+              Limpar Filtros
             </button>
           )}
         </div>
@@ -207,17 +264,17 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
 
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-              {selectedDay ? `Torneios em ${selectedDay} de ${calendarDate.toLocaleDateString('pt-PT', { month: 'long' })}` : 'Lista de Torneios'}
+            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest max-w-[70%] truncate">
+              {getListTitle()}
             </h3>
-            <span className="text-[10px] font-bold text-primary">{filteredHistory.length} encontrados</span>
+            <span className="text-[10px] font-bold text-primary whitespace-nowrap">{filteredHistory.length} encontrados</span>
           </div>
 
           {filteredHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 opacity-30 text-center">
               <span className="material-symbols-outlined text-6xl mb-4">history_toggle_off</span>
               <p className="text-sm font-bold">Nenhum registo encontrado</p>
-              {selectedDay && <p className="text-[10px] uppercase mt-1">Tente selecionar outro dia ou limpar o filtro.</p>}
+              {(selectedDay || startDate || endDate) && <p className="text-[10px] uppercase mt-1">Tente ajustar ou limpar o filtro de data.</p>}
             </div>
           ) : (
             filteredHistory.map(t => {
