@@ -29,13 +29,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onViewTournament
 }) => {
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isManagingPlayers, setIsManagingPlayers] = useState(false);
   const [playerSearchTerm, setPlayerSearchTerm] = useState('');
-  
-  const [isAddingGuest, setIsAddingGuest] = useState(false);
-  const [guestFirstName, setGuestFirstName] = useState('');
-  const [guestLastName, setGuestLastName] = useState('');
-  const [guestNickname, setGuestNickname] = useState('');
   
   const [date, setDate] = useState('');
   const [time, setTime] = useState('22:00');
@@ -82,6 +78,73 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const favLocationId = Object.entries(locationUsage).sort((a, b) => b[1] - a[1])[0]?.[0];
   const favLocation = locations.find(l => l.id === favLocationId)?.name || 'N/A';
 
+  const initCreation = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setDate(today);
+    setSelectedPlayers([]);
+    const lxIndoor = locations.find(l => l.name.toLowerCase().includes('lx indoor'));
+    if (lxIndoor) setLocationId(lxIndoor.id);
+    else if (locations.length > 0) setLocationId(locations[0].id);
+    setIsCreating(true);
+    setIsEditing(false);
+  };
+
+  const initEdit = () => {
+    if (!activeTournament) return;
+    setDate(activeTournament.date);
+    setTime(activeTournament.time);
+    setDuration(activeTournament.duration);
+    setLocationId(activeTournament.locationId);
+    setSelectedPlayers(activeTournament.confirmedPlayerIds);
+    setIsCreating(true);
+    setIsEditing(true);
+  };
+
+  const togglePlayerInActiveTournament = (id: string) => {
+    if (!activeTournament) return;
+    const isAlreadyConfirmed = activeTournament.confirmedPlayerIds.includes(id);
+    const updatedIds = isAlreadyConfirmed 
+        ? activeTournament.confirmedPlayerIds.filter(pid => pid !== id)
+        : [...activeTournament.confirmedPlayerIds, id];
+    onUpdateTournament({ ...activeTournament, confirmedPlayerIds: updatedIds });
+  };
+
+  const handleSubmitTournament = () => {
+    if (!date || !time || !locationId) return;
+    if (isEditing && activeTournament) {
+        onUpdateTournament({ 
+            ...activeTournament, 
+            date, 
+            time, 
+            duration, 
+            locationId, 
+            confirmedPlayerIds: selectedPlayers 
+        });
+    } else {
+        onCreateTournament({ 
+            id: `t-${Date.now()}`, 
+            date, 
+            time, 
+            duration, 
+            locationId, 
+            confirmedPlayerIds: selectedPlayers, 
+            status: 'scheduled', 
+            rosterClosed: false 
+        });
+    }
+    setIsCreating(false);
+  };
+
+  const handleCloseRoster = () => {
+    if (activeTournament?.confirmedPlayerIds.length !== 8) {
+        alert("São necessários exatamente 8 jogadores."); return;
+    }
+    if (confirm("Fechar convocatória e preparar sorteio?")) {
+        onUpdateTournament({ ...activeTournament, rosterClosed: true });
+        setIsManagingPlayers(false);
+    }
+  };
+
   const StatsSection = (
     <section className="grid grid-cols-3 gap-3">
       <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
@@ -105,58 +168,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     </section>
   );
 
-  const initCreation = () => {
-    const today = new Date().toISOString().split('T')[0];
-    setDate(today);
-    setSelectedPlayers([]);
-    const lxIndoor = locations.find(l => l.name.toLowerCase().includes('lx indoor'));
-    if (lxIndoor) setLocationId(lxIndoor.id);
-    else if (locations.length > 0) setLocationId(locations[0].id);
-    setIsCreating(true);
-  };
-
-  const togglePlayerInActiveTournament = (id: string) => {
-    if (!activeTournament) return;
-    const isAlreadyConfirmed = activeTournament.confirmedPlayerIds.includes(id);
-    const updatedIds = isAlreadyConfirmed 
-        ? activeTournament.confirmedPlayerIds.filter(pid => pid !== id)
-        : [...activeTournament.confirmedPlayerIds, id];
-    onUpdateTournament({ ...activeTournament, confirmedPlayerIds: updatedIds });
-  };
-
-  const handleSaveGuest = () => {
-    if (!guestFirstName.trim()) return;
-    const newId = `p-${Date.now()}`;
-    const newPlayer: Player = { id: newId, name: guestFirstName, lastName: guestLastName, nickname: guestNickname || guestFirstName, level: 'Nível 3', image: '' };
-    onAddPlayer(newPlayer);
-    if (activeTournament) {
-        onUpdateTournament({ ...activeTournament, confirmedPlayerIds: [...activeTournament.confirmedPlayerIds, newId] });
-    }
-    setGuestFirstName(''); setGuestLastName(''); setGuestNickname(''); setIsAddingGuest(false);
-  };
-
-  const handleSubmitTournament = () => {
-    if (!date || !time || !locationId) return;
-    onCreateTournament({ id: `t-${Date.now()}`, date, time, duration, locationId, confirmedPlayerIds: selectedPlayers, status: 'scheduled', rosterClosed: false });
-    setIsCreating(false);
-  };
-
-  const handleCloseRoster = () => {
-    if (activeTournament?.confirmedPlayerIds.length !== 8) {
-        alert("São necessários exatamente 8 jogadores."); return;
-    }
-    if (confirm("Fechar convocatória e preparar sorteio?")) {
-        onUpdateTournament({ ...activeTournament, rosterClosed: true });
-        setIsManagingPlayers(false);
-    }
-  };
-
   if (isCreating) {
     return (
         <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in min-h-screen bg-background-dark relative z-20">
             <header className="flex items-center justify-between">
                 <button onClick={() => setIsCreating(false)} className="size-10 rounded-full flex items-center justify-center bg-white/5"><span className="material-symbols-outlined text-white">close</span></button>
-                <h2 className="text-lg font-bold">Novo Torneio</h2>
+                <h2 className="text-lg font-bold">{isEditing ? 'Editar Torneio' : 'Novo Torneio'}</h2>
                 <div className="w-10"></div>
             </header>
             <div className="space-y-5">
@@ -180,19 +197,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                     </select>
                 </div>
-                <div className="space-y-3">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmados Iniciais ({selectedPlayers.length})</label>
-                    <div className="grid grid-cols-4 gap-2">
-                        {players.map(p => (
-                            <button key={p.id} onClick={() => { if(selectedPlayers.includes(p.id)) setSelectedPlayers(selectedPlayers.filter(i => i !== p.id)); else setSelectedPlayers([...selectedPlayers, p.id]); }} className={`flex flex-col items-center p-2 rounded-xl border transition-all ${selectedPlayers.includes(p.id) ? 'bg-primary/20 border-primary' : 'bg-card-dark border-transparent opacity-60'}`}>
-                                {renderGlobalAvatar(p, 'size-8')}
-                                <span className="text-[9px] font-bold truncate w-full text-center mt-1">{p.nickname || p.name.split(' ')[0]}</span>
-                            </button>
-                        ))}
+                {!isEditing && (
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confirmados Iniciais ({selectedPlayers.length})</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {players.map(p => (
+                                <button key={p.id} onClick={() => { if(selectedPlayers.includes(p.id)) setSelectedPlayers(selectedPlayers.filter(i => i !== p.id)); else setSelectedPlayers([...selectedPlayers, p.id]); }} className={`flex flex-col items-center p-2 rounded-xl border transition-all ${selectedPlayers.includes(p.id) ? 'bg-primary/20 border-primary' : 'bg-card-dark border-transparent opacity-60'}`}>
+                                    {renderGlobalAvatar(p, 'size-8')}
+                                    <span className="text-[9px] font-bold truncate w-full text-center mt-1">{p.nickname || p.name.split(' ')[0]}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
-            <button onClick={handleSubmitTournament} className="mt-auto w-full bg-primary text-background-dark font-bold py-4 rounded-xl">Criar Torneio</button>
+            <button onClick={handleSubmitTournament} className="mt-auto w-full bg-primary text-background-dark font-bold py-4 rounded-xl">{isEditing ? 'Guardar Alterações' : 'Criar Torneio'}</button>
         </div>
     );
   }
@@ -204,6 +223,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const isLive = activeTournament.status === 'live';
     const isRosterClosed = activeTournament.rosterClosed;
     const isQuorumReached = confirmedCount === 8;
+    const progress = Math.min(100, (confirmedCount / 8) * 100);
 
     return (
         <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in relative">
@@ -231,6 +251,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </div>
                 </div>
             )}
+            
             <header className="flex justify-between items-start">
                 <div className="flex gap-3 items-center">
                     <img src="/favicon.svg" className="w-14 h-14 object-contain" alt="Logo" />
@@ -239,32 +260,76 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         <p className="text-slate-400 text-xs mt-1">{isLive ? 'Em direto!' : 'Fase de convocatória'}</p>
                     </div>
                 </div>
+                {!isLive && (
+                    <div className="flex gap-2">
+                         <button onClick={initEdit} className="bg-white/5 text-white size-10 flex items-center justify-center rounded-xl border border-white/10 active:scale-95 transition-all"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                         <button onClick={onCancelTournament} className="bg-red-500/10 text-red-500 size-10 flex items-center justify-center rounded-xl border border-red-500/20 active:scale-95 transition-all"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                    </div>
+                )}
             </header>
+
             {StatsSection}
-            <section className="relative overflow-hidden rounded-3xl min-h-[250px] flex flex-col justify-end bg-card-dark border border-white/10 p-5">
+
+            <section className="relative overflow-hidden rounded-3xl min-h-[280px] flex flex-col justify-end bg-card-dark border border-white/10 p-5 shadow-2xl">
                 {loc?.imageUrl && <img src={loc.imageUrl} className="absolute inset-0 w-full h-full object-cover opacity-40" alt={locName} />}
-                <div className="relative z-10">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="bg-primary text-background-dark text-[10px] font-black px-2 py-0.5 rounded-full uppercase">{isLive ? 'LIVE' : 'PRÓXIMO'}</span>
+                <div className="relative z-10 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${isLive ? 'bg-red-500 text-white animate-pulse' : 'bg-primary text-background-dark'}`}>
+                            {isLive ? 'LIVE' : 'AGENDADO'}
+                        </span>
                         <span className="text-xs font-black text-white">{timeRemaining}</span>
                     </div>
-                    <h3 className="text-2xl font-black text-white">{locName}</h3>
-                    <p className="text-gray-400 text-xs font-bold">{new Date(activeTournament.date).toLocaleDateString()} • {activeTournament.time}</p>
+                    
+                    <div>
+                        <h3 className="text-2xl font-black text-white leading-tight">{locName}</h3>
+                        <p className="text-gray-400 text-xs font-bold">{new Date(activeTournament.date).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })} • {activeTournament.time}</p>
+                    </div>
+
+                    {!isLive && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-end">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Convocatória</span>
+                                <span className={`text-[10px] font-black uppercase ${isQuorumReached ? 'text-emerald-400' : 'text-primary'}`}>
+                                    {isQuorumReached ? 'QUORUM ATINGIDO' : `Faltam ${8 - confirmedCount} jogadores`}
+                                </span>
+                            </div>
+                            <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full transition-all duration-500 ease-out ${isQuorumReached ? 'bg-emerald-500' : 'bg-primary'}`}
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                            <div className="flex justify-between text-[8px] font-black text-gray-500 uppercase">
+                                <span>{confirmedCount} Confirmados</span>
+                                <span>8 Necessários</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </section>
+
             {isLive ? (
-                <button onClick={() => setScreen(Screen.LIVE_GAME)} className="w-full bg-primary text-background-dark font-black py-5 rounded-2xl shadow-xl">IR PARA JOGO</button>
+                <button onClick={() => setScreen(Screen.LIVE_GAME)} className="w-full bg-primary text-background-dark font-black py-5 rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined font-black">sports_tennis</span>
+                    IR PARA JOGO
+                </button>
             ) : isRosterClosed ? (
-                <button onClick={() => setScreen(Screen.TEAM_SETUP)} className="w-full bg-emerald-500 text-background-dark font-black py-4 rounded-2xl">REALIZAR SORTEIO</button>
+                <button onClick={() => setScreen(Screen.TEAM_SETUP)} className="w-full bg-emerald-500 text-background-dark font-black py-5 rounded-2xl shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined font-black">shuffle</span>
+                    REALIZAR SORTEIO
+                </button>
             ) : (
-                <button onClick={() => setIsManagingPlayers(true)} className="w-full bg-white/5 border border-white/10 font-bold py-4 rounded-2xl">GERIR JOGADORES</button>
+                <button onClick={() => setIsManagingPlayers(true)} className="w-full bg-white/5 border border-white/10 font-bold py-5 rounded-2xl flex items-center justify-center gap-2 active:bg-white/10 transition-all">
+                    <span className="material-symbols-outlined font-black">group_add</span>
+                    GERIR CONVOCATÓRIA
+                </button>
             )}
         </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in">
+    <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in min-h-screen">
         <header className="flex justify-between items-start">
             <div className="flex gap-3 items-center">
                 <img src="/favicon.svg" className="w-14 h-14 object-contain" alt="Logo" />
@@ -273,25 +338,43 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <p className="text-slate-400 text-xs mt-1">Pronto para o próximo jogo?</p>
                 </div>
             </div>
-            <button onClick={initCreation} className="bg-primary text-background-dark size-12 flex items-center justify-center rounded-2xl"><span className="material-symbols-outlined font-bold text-2xl">add</span></button>
         </header>
+
         {StatsSection}
+
+        <section className="bg-card-dark/50 border border-white/5 rounded-[2.5rem] p-8 flex flex-col items-center text-center gap-6 shadow-xl">
+             <div className="size-20 bg-primary/10 rounded-full flex items-center justify-center">
+                <span className="material-symbols-outlined text-4xl text-primary animate-bounce">event_available</span>
+             </div>
+             <div>
+                <h3 className="text-xl font-black text-white">Nenhum jogo agendado</h3>
+                <p className="text-gray-500 text-sm mt-2">Dá o primeiro passo e organiza o próximo torneio para o teu grupo.</p>
+             </div>
+             <button 
+                onClick={initCreation} 
+                className="w-full bg-primary text-background-dark font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-primary/10 active:scale-95 transition-all"
+             >
+                <span className="material-symbols-outlined font-black">add</span>
+                AGENDAR TORNEIO
+             </button>
+        </section>
+
         <section className="flex flex-col gap-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Últimos Torneios</h3>
-              <button onClick={() => setScreen(Screen.TOURNAMENT_HISTORY)} className="text-[10px] font-bold text-primary">Ver Tudo</button>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Últimos Torneios</h3>
+              <button onClick={() => setScreen(Screen.TOURNAMENT_HISTORY)} className="text-[10px] font-black text-primary uppercase tracking-widest">Ver Tudo</button>
             </div>
             <div className="flex flex-col gap-3">
-                {history.slice(0, 5).map((t) => (
-                    <button key={t.id} onClick={() => onViewTournament(t)} className="flex items-center justify-between p-4 bg-card-dark rounded-2xl border border-white/5">
+                {history.slice(0, 3).map((t) => (
+                    <button key={t.id} onClick={() => onViewTournament(t)} className="flex items-center justify-between p-4 bg-card-dark rounded-2xl border border-white/5 active:bg-white/5 transition-all">
                         <div className="flex items-center gap-4">
                             <div className="size-10 rounded-xl bg-white/5 flex flex-col items-center justify-center">
-                                <span className="text-[9px] font-bold text-gray-500 uppercase">{new Date(t.date).toLocaleDateString('pt-PT', { month: 'short' })}</span>
-                                <span className="text-sm font-bold text-white">{new Date(t.date).getDate()}</span>
+                                <span className="text-[9px] font-black text-gray-500 uppercase">{new Date(t.date).toLocaleDateString('pt-PT', { month: 'short' })}</span>
+                                <span className="text-sm font-black text-white">{new Date(t.date).getDate()}</span>
                             </div>
                             <div className="text-left">
-                                <p className="text-sm font-bold text-white leading-tight">{locations.find(l => l.id === t.locationId)?.name || 'Local'}</p>
-                                <p className="text-[10px] text-gray-500">{t.matches?.length || 0} Jogos</p>
+                                <p className="text-sm font-black text-white leading-tight truncate max-w-[150px]">{locations.find(l => l.id === t.locationId)?.name || 'Local'}</p>
+                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{t.matches?.length || 0} Jogos Realizados</p>
                             </div>
                         </div>
                         <span className="material-symbols-outlined text-gray-600">chevron_right</span>
