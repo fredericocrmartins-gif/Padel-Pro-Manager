@@ -14,8 +14,8 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
   const [showCancelled, setShowCancelled] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  // Definido como true por defeito para ser visível imediatamente
-  const [isCalendarExpanded, setIsCalendarExpanded] = useState(true);
+  // Alterado para false: o calendário começa recolhido por defeito
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
 
   // Lógica do Calendário
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -29,7 +29,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
     const firstDay = firstDayOfMonth(currentYear, currentMonth);
     const daysArray = [];
     
-    // Espaços vazios para alinhar o primeiro dia (considerando Domingo como 0)
+    // Espaços vazios para alinhar o primeiro dia
     for (let i = 0; i < firstDay; i++) {
       daysArray.push(null);
     }
