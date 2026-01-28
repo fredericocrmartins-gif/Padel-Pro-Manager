@@ -1,20 +1,21 @@
 
 import React, { useState, useMemo } from 'react';
-import { Screen, Tournament, Location } from '../types';
+import { Screen, Tournament, Location, Player, Match } from '../types';
+import { renderGlobalAvatar } from './ProfileScreen';
 
 interface HistoryProps {
   history: Tournament[];
   locations: Location[];
+  players: Player[];
   onViewTournament: (t: Tournament) => void;
   onDeleteTournament?: (id: string) => void;
 }
 
-export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locations, onViewTournament, onDeleteTournament }) => {
+export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locations, players, onViewTournament, onDeleteTournament }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCancelled, setShowCancelled] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  // Definido como false: o calendário começa recolhido por defeito
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
 
   // Lógica do Calendário
@@ -29,7 +30,6 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
     const firstDay = firstDayOfMonth(currentYear, currentMonth);
     const daysArray = [];
     
-    // Espaços vazios para alinhar o primeiro dia
     for (let i = 0; i < firstDay; i++) {
       daysArray.push(null);
     }
@@ -82,6 +82,26 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
     setSelectedDay(null);
   };
 
+  const getWinnersOfTournament = (t: Tournament) => {
+    if (!t.matches || t.matches.length === 0) return null;
+    
+    const stats = new Map<string, { wins: number, diff: number, pids: string[] }>();
+    t.matches.forEach(m => {
+        const k1 = m.team1.map(p => p.id).sort().join('-');
+        const k2 = m.team2.map(p => p.id).sort().join('-');
+        if (!stats.has(k1)) stats.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p => p.id) });
+        if (!stats.has(k2)) stats.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p => p.id) });
+        const s1 = stats.get(k1)!, s2 = stats.get(k2)!;
+        s1.diff += (m.score1 - m.score2); s2.diff += (m.score2 - m.score1);
+        if (m.score1 > m.score2) s1.wins++; else if (m.score2 > m.score1) s2.wins++;
+    });
+    
+    const standings = Array.from(stats.values()).sort((a, b) => b.wins - a.wins || b.diff - a.diff);
+    if (standings.length === 0) return null;
+    
+    return standings[0].pids.map(id => players.find(p => p.id === id)).filter((p): p is Player => !!p);
+  };
+
   return (
     <div className="flex flex-col gap-6 px-4 pt-6 pb-32 animate-fade-in">
       <header className="flex justify-between items-start">
@@ -98,13 +118,11 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
         </button>
       </header>
 
-      {/* Calendário Interativo com Expansão/Colapso */}
       <section className="bg-card-dark rounded-[2.5rem] border border-white/5 shadow-xl overflow-hidden relative transition-all duration-500 ease-in-out">
         <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
           <span className="material-symbols-outlined text-8xl">calendar_month</span>
         </div>
 
-        {/* Header do Calendário */}
         <div className="flex items-center justify-between p-6 relative z-10 border-b border-white/5">
           <div className="flex items-center gap-4">
              <button onClick={() => changeMonth(-1)} className="size-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
@@ -123,7 +141,6 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
              </button>
           </div>
           
-          {/* Botão de Expansão */}
           <button 
             onClick={() => setIsCalendarExpanded(!isCalendarExpanded)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isCalendarExpanded ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-400'}`}
@@ -133,7 +150,6 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
           </button>
         </div>
 
-        {/* Grelha do Calendário (Colapsável) */}
         <div className={`transition-all duration-500 ease-in-out px-6 ${isCalendarExpanded ? 'max-h-[400px] opacity-100 py-6' : 'max-h-0 opacity-0 py-0 overflow-hidden'}`}>
           <div className="grid grid-cols-7 gap-1 mb-2">
             {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
@@ -208,6 +224,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
               const loc = locations.find(l => l.id === t.locationId);
               const locName = loc?.name || 'Local Desconhecido';
               const isCancelled = t.status === 'cancelled';
+              const winnerPlayers = getWinnersOfTournament(t);
 
               return (
                 <div key={t.id} className={`relative group ${isCancelled ? 'opacity-60 grayscale-[0.5]' : ''}`}>
@@ -216,7 +233,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
                     disabled={isCancelled}
                     className="w-full bg-card-dark p-5 rounded-3xl border border-white/5 hover:border-primary/30 transition-all text-left group active:scale-[0.98] disabled:cursor-not-allowed"
                   >
-                    <div className="flex justify-between items-start mb-3">
+                    <div className="flex justify-between items-start mb-4">
                       <div>
                         <span className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${isCancelled ? 'text-red-500' : 'text-primary'}`}>
                           {new Date(t.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -231,18 +248,29 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-4 text-gray-500">
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[16px]">sports_tennis</span>
-                        <span className="text-[10px] font-bold uppercase">{t.matches?.length || 0} Jogos</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[16px]">schedule</span>
-                        <span className="text-[10px] font-bold uppercase">{t.time} • {t.duration}h</span>
+                    <div className="flex items-center justify-between gap-4">
+                      {winnerPlayers ? (
+                        <div className="flex gap-4">
+                          {winnerPlayers.map(p => (
+                             <div key={p.id} className="flex flex-col items-center gap-1">
+                                {renderGlobalAvatar(p, 'size-8 ring-1 ring-white/10')}
+                                <span className="text-[7px] font-black text-white uppercase tracking-tighter opacity-80">{p.nickname || p.name.split(' ')[0]}</span>
+                             </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 opacity-30">
+                          <span className="material-symbols-outlined text-[16px]">sports_tennis</span>
+                          <span className="text-[10px] font-bold uppercase">{t.matches?.length || 0} Jogos</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-1.5 text-gray-500 bg-white/5 px-2 py-1 rounded-lg">
+                        <span className="material-symbols-outlined text-[14px]">schedule</span>
+                        <span className="text-[9px] font-bold uppercase whitespace-nowrap">{t.time} • {t.duration}h</span>
                       </div>
                     </div>
                   </button>
-                  {/* Botão de eliminar flutuante */}
                   <button 
                     onClick={(e) => { e.stopPropagation(); onDeleteTournament?.(t.id); }}
                     className="absolute bottom-4 right-4 p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 z-10"
