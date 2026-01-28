@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Screen, Player, Location, Tournament, CloudConfig } from '../types';
 
@@ -84,7 +83,13 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
   };
 
   const handleExportMatchesCSV = () => {
-    const headers = ['Data', 'Hora', 'Local', 'Ronda', 'Campo', 'Equipa 1', 'Equipa 2', 'Score 1', 'Score 2', 'Vencedor', 'Diferença Pontos'];
+    // Cabeçalhos ajustados: 4 colunas para jogadores (Nome Completo)
+    const headers = [
+      'Data', 'Hora', 'Local', 'Ronda', 'Campo', 
+      'T1_Jog1', 'T1_Jog2', 
+      'T2_Jog1', 'T2_Jog2',
+      'Score 1', 'Score 2', 'Vencedor', 'Diferença Pontos'
+    ];
     const rows: string[] = [];
 
     history.forEach(t => {
@@ -92,6 +97,19 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
       const date = new Date(t.date).toLocaleDateString('pt-PT');
       
       t.matches?.forEach(m => {
+        // Função auxiliar para obter nome completo
+        const getFullName = (team: Player[], idx: number) => {
+            const p = team[idx];
+            if (!p) return '';
+            return `${p.name} ${p.lastName || ''}`.trim();
+        };
+
+        const t1p1 = getFullName(m.team1, 0);
+        const t1p2 = getFullName(m.team1, 1);
+        const t2p1 = getFullName(m.team2, 0);
+        const t2p2 = getFullName(m.team2, 1);
+        
+        // Vencedor (apenas nome da dupla para referência)
         const team1Names = m.team1.map(p => p.nickname || p.name).join(' & ');
         const team2Names = m.team2.map(p => p.nickname || p.name).join(' & ');
         
@@ -107,8 +125,8 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
           locName,
           m.round,
           m.court,
-          team1Names,
-          team2Names,
+          t1p1, t1p2,
+          t2p1, t2p2,
           m.score1,
           m.score2,
           winner,
