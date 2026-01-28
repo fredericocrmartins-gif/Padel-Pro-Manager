@@ -253,17 +253,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         <h2 className="text-xl font-bold">Gerir Jogadores ({confirmedCount}/8)</h2>
                         <button onClick={() => setIsManagingPlayers(false)} className="size-10 rounded-full bg-white/5 flex items-center justify-center"><span className="material-symbols-outlined">close</span></button>
                     </header>
-                    <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-3 pb-40 hide-scrollbar">
+                    
+                    <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-3 pb-40 hide-scrollbar content-start">
                         {players.filter(p => (p.nickname || p.name).toLowerCase().includes(playerSearchTerm.toLowerCase())).map(p => {
                             const isConfirmed = activeTournament.confirmedPlayerIds.includes(p.id);
                             return (
-                                <button key={p.id} onClick={() => togglePlayerInActiveTournament(p.id)} className={`flex flex-col items-center p-3 rounded-2xl border transition-all ${isConfirmed ? 'bg-primary/20 border-primary' : 'bg-card-dark border-white/5'}`}>
-                                    {renderGlobalAvatar(p, 'size-12')}
-                                    <span className="text-[10px] font-bold mt-1 text-center truncate w-full">{p.nickname || p.name.split(' ')[0]}</span>
+                                <button 
+                                    key={p.id} 
+                                    onClick={() => togglePlayerInActiveTournament(p.id)} 
+                                    className={`aspect-square relative rounded-3xl border-2 flex flex-col items-center justify-center gap-2 p-2 transition-all duration-200 active:scale-95 ${
+                                        isConfirmed 
+                                        ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(96,122,251,0.2)]' 
+                                        : 'bg-card-dark border-white/5 hover:border-white/10'
+                                    }`}
+                                >
+                                    {isConfirmed && (
+                                        <div className="absolute top-2 right-2 size-5 bg-primary text-background-dark rounded-full flex items-center justify-center shadow-sm z-10">
+                                            <span className="material-symbols-outlined text-[14px] font-black">check</span>
+                                        </div>
+                                    )}
+                                    
+                                    <div className={isConfirmed ? 'scale-110 transition-transform' : 'opacity-80 grayscale-[0.3]'}>
+                                        {renderGlobalAvatar(p, 'size-14')}
+                                    </div>
+                                    
+                                    <span className={`text-[10px] font-black uppercase tracking-tight truncate w-full text-center leading-none ${isConfirmed ? 'text-white' : 'text-gray-500'}`}>
+                                        {p.nickname || p.name.split(' ')[0]}
+                                    </span>
                                 </button>
                             );
                         })}
                     </div>
+
                     <div className="absolute bottom-4 left-4 right-4 safe-area-bottom pb-28">
                          {isQuorumReached && (
                              <button onClick={handleCloseRoster} className="w-full bg-emerald-500 text-background-dark font-black py-4 rounded-2xl">FECHAR CONVOCATÓRIA</button>
