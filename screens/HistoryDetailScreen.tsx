@@ -23,14 +23,19 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
   }, [tournament.confirmedPlayerIds, players]);
 
   const standings = useMemo(() => {
-    const stats = new Map<string, { id: string, teamName: string, wins: number, pointsDiff: number, players: Player[] }>();
+    const stats = new Map<string, { id: string, teamName: string, wins: number, gamesPlayed: number, pointsDiff: number, players: Player[] }>();
     const getStats = (team: Player[]) => {
         const key = team.map(p => p.id).sort().join('-');
-        if (!stats.has(key)) stats.set(key, { id: key, teamName: team.map(p => p.nickname || p.name.split(' ')[0]).join(' & '), wins: 0, pointsDiff: 0, players: team });
+        if (!stats.has(key)) stats.set(key, { id: key, teamName: team.map(p => p.nickname || p.name.split(' ')[0]).join(' & '), wins: 0, gamesPlayed: 0, pointsDiff: 0, players: team });
         return stats.get(key)!;
     };
     matches.forEach(m => {
         const s1 = getStats(m.team1); const s2 = getStats(m.team2);
+        
+        // Incrementar jogos jogados
+        s1.gamesPlayed += 1;
+        s2.gamesPlayed += 1;
+
         s1.pointsDiff += (m.score1 - m.score2); s2.pointsDiff += (m.score2 - m.score1);
         if (m.score1 > m.score2) s1.wins += 1; else if (m.score2 > m.score1) s2.wins += 1;
     });
@@ -50,8 +55,13 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
     shareText += `📅 ${dateStr}\n\n`;
     shareText += `🥇 *VENCEDORES:* ${winner.teamName}\n`;
     shareText += `📊 (${winner.wins} Vitórias | Saldo ${winner.pointsDiff})\n\n`;
-    shareText += `--- JOGOS ---\n`;
+    
+    shareText += `--- CLASSIFICAÇÃO ---\n`;
+    standings.forEach((team, idx) => {
+        shareText += `${idx + 1}º ${team.teamName} (${team.wins}V/${team.gamesPlayed - team.wins}D)\n`;
+    });
 
+    shareText += `\n--- JOGOS ---\n`;
     rounds.forEach(r => {
         shareText += `\n*RONDA ${r}*\n`;
         matches.filter(m => m.round === r).forEach(m => {
@@ -204,6 +214,65 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
                 </div>
             ))}
         </div>
+
+        {/* Tabela de Classificação Final */}
+        {standings.length > 0 && (
+            <section className="bg-card-dark rounded-[2rem] border border-white/5 p-5 shadow-xl mt-2">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-5 px-1">Classificação Final</h3>
+                <div className="flex flex-col gap-3">
+                    {/* Cabeçalho da Tabela */}
+                    <div className="grid grid-cols-[30px_1fr_30px_30px_40px] gap-2 px-2 mb-1 opacity-50 text-[8px] font-black uppercase tracking-widest text-center text-gray-400">
+                        <span>Pos</span>
+                        <span className="text-left">Equipa</span>
+                        <span>V</span>
+                        <span>D</span>
+                        <span>Sal</span>
+                    </div>
+                    
+                    {standings.map((team, idx) => {
+                        const losses = team.gamesPlayed - team.wins;
+                        let medal = null;
+                        if (idx === 0) medal = '🥇';
+                        else if (idx === 1) medal = '🥈';
+                        else if (idx === 2) medal = '🥉';
+
+                        return (
+                            <div key={team.id} className="grid grid-cols-[30px_1fr_30px_30px_40px] gap-2 items-center bg-white/5 rounded-xl p-2 border border-white/5 relative overflow-hidden">
+                                {idx === 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500"></div>}
+                                
+                                {/* Posição / Medalha */}
+                                <div className="flex items-center justify-center text-sm">
+                                    {medal ? <span className="text-lg filter drop-shadow-md">{medal}</span> : <span className="text-[10px] font-black text-gray-500">{idx + 1}º</span>}
+                                </div>
+
+                                {/* Equipa (Avatares + Nomes) */}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <div className="flex -space-x-2 shrink-0">
+                                        {team.players.map(p => (
+                                            <div key={p.id}>{renderGlobalAvatar(p, 'size-6')}</div>
+                                        ))}
+                                    </div>
+                                    <span className={`text-[9px] font-black truncate leading-tight ${idx === 0 ? 'text-white' : 'text-gray-300'}`}>
+                                        {team.teamName}
+                                    </span>
+                                </div>
+
+                                {/* Vitórias */}
+                                <div className="text-center text-[10px] font-black text-emerald-400">{team.wins}</div>
+
+                                {/* Derrotas */}
+                                <div className="text-center text-[10px] font-black text-red-400">{losses}</div>
+
+                                {/* Saldo */}
+                                <div className={`text-center text-[10px] font-black ${team.pointsDiff > 0 ? 'text-primary' : team.pointsDiff < 0 ? 'text-gray-500' : 'text-white'}`}>
+                                    {team.pointsDiff > 0 ? '+' : ''}{team.pointsDiff}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+        )}
 
         {/* Botão de Partilha no Final */}
         <section className="mt-4 pb-12">
