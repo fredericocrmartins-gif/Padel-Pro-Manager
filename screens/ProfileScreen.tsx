@@ -41,11 +41,9 @@ export const renderGlobalAvatar = (p: { id: string, name: string, lastName?: str
     
     return (
       <div className={`${sizeClass} rounded-full ${bgColor} flex items-center justify-center border-2 border-white/20 text-white shadow-lg shrink-0 relative overflow-hidden group transition-all duration-300`}>
-        {/* Background Padel Racket Icon - Ultra Large (350%) */}
         <span className="material-symbols-outlined absolute text-[350%] opacity-30 pointer-events-none rotate-[-15deg] translate-x-2 translate-y-2 select-none">
           sports_tennis
         </span>
-        {/* Initials - Gigantic (60%) */}
         <span className="relative z-10 text-[60%] font-black tracking-tighter select-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
           {initials}
         </span>
@@ -66,6 +64,10 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [drillDown, setDrillDown] = useState<{ title: string; type: 'matches' | 'tournaments'; items: any[] } | null>(null);
+  
+  // States para Tooltips interativos
+  const [activePerfIndex, setActivePerfIndex] = useState<number | null>(null);
+  const [activeRankIndex, setActiveRankIndex] = useState<number | null>(null);
 
   const player = players.find(p => p.id === playerId);
 
@@ -89,7 +91,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
   const stats = useMemo(() => {
     if (!playerId) return null;
-    const myMatches: Match[] = [];
+    const myMatches: (Match & { date: string })[] = [];
     const myWonMatches: Match[] = [];
     const myTournaments: Tournament[] = [];
     const myWonTournaments: Tournament[] = [];
@@ -128,7 +130,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
             if (winnersIds.includes(playerId)) myWonTournaments.push(t);
 
             tMatches.forEach(m => {
-                myMatches.push(m);
+                myMatches.push({ ...m, date: t.date });
                 const inTeam1 = m.team1.some(p => p.id === playerId);
                 const won = inTeam1 ? m.score1 > m.score2 : m.score2 > m.score1;
                 
@@ -173,19 +175,74 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         winRate: myMatches.length > 0 ? Math.round((myWonMatches.length / myMatches.length) * 100) : 0,
         myTournaments,
         myWonTournaments,
-        myMatches,
+        myMatches: myMatches.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
         pointsScored,
         pointsConceded,
         maxWinStreak,
         partners: Array.from(partners.values()).sort((a,b) => b.wins - a.wins || b.games - a.games),
-        // Vítimas: Ordem Decrescente de saldo (mais saldo positivo primeiro)
         victims: rivalsList.sort((a,b) => b.balance - a.balance).slice(0, 6),
-        // Bestas Negras: Ordem Crescente de saldo (mais saldo negativo primeiro)
         blackBeasts: rivalsList.sort((a,b) => a.balance - b.balance).slice(0, 6)
     };
   }, [playerId, history]);
 
   if (!player || !stats) return null;
+
+  const renderPerformanceChart = () => {
+    const last10 = stats.myMatches.slice(0, 10).reverse();
+    if (last10.length === 0) return null;
+
+    return (
+      <div className="bg-card-dark p-6 rounded-3xl border border-white/5 space-y-4 shadow-lg animate-fade-in">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-[10px] font-black text-primary uppercase tracking-widest">Forma Recente</p>
+            <h3 className="text-sm font-black text-white uppercase">Últimos 10 Jogos</h3>
+          </div>
+          <div className="flex gap-1">
+             {last10.map((m, i) => {
+               const inT1 = m.team1.some(p => p.id === playerId);
+               const won = inT1 ? m.score1 > m.score2 : m.score2 > m.score1;
+               return (
+                 <div key={i} className={`size-1.5 rounded-full ${won ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]'}`}></div>
+               );
+             })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-10 gap-1.5 h-12 relative">
+          {last10.map((m, idx) => {
+            const inT1 = m.team1.some(p => p.id === playerId);
+            const won = inT1 ? m.score1 > m.score2 : m.score2 > m.score1;
+            const isActive = activePerfIndex === idx;
+
+            return (
+              <div key={idx} className="relative group">
+                <button
+                  onClick={() => setActivePerfIndex(isActive ? null : idx)}
+                  className={`w-full h-full rounded-lg transition-all transform active:scale-95 ${won ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-red-500/20 border-red-500/50'} border ${isActive ? 'ring-2 ring-primary scale-110 z-10' : 'opacity-80'}`}
+                >
+                  <span className={`text-[10px] font-black ${won ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {won ? 'V' : 'D'}
+                  </span>
+                </button>
+                
+                {isActive && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50 animate-fade-in-up">
+                    <div className="bg-primary text-background-dark p-2 rounded-xl shadow-2xl whitespace-nowrap border border-white/10">
+                      <p className="text-[8px] font-black uppercase tracking-widest opacity-70 mb-0.5">{new Date(m.date).toLocaleDateString('pt-PT')}</p>
+                      <p className="text-xs font-black">{m.score1} — {m.score2}</p>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-primary"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[8px] text-gray-500 font-bold text-center uppercase tracking-[0.2em]">Clica num bloco para ver o resultado</p>
+      </div>
+    );
+  };
 
   const renderRankingChart = () => {
     if (rankingHistory.length < 2) return (
@@ -197,42 +254,68 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
     const width = 340;
     const height = 180;
+    const paddingX = 20;
     const pts = rankingHistory.map(h => h.points);
     const maxPts = Math.max(...pts) + 50;
     const minPts = Math.min(...pts) - 50;
     const range = Math.max(100, maxPts - minPts);
 
     const points = rankingHistory.map((h, i) => ({
-        x: (i * (width / (rankingHistory.length - 1))),
-        y: height - ((h.points - minPts) * (height / range))
+        x: paddingX + (i * ((width - (paddingX * 2)) / (rankingHistory.length - 1))),
+        y: height - ((h.points - minPts) * (height / range)),
+        data: h
     }));
 
     const d = points.reduce((acc, p, i) => i === 0 ? `M ${p.x},${p.y}` : `${acc} L ${p.x},${p.y}`, '');
 
     return (
-        <div className="bg-card-dark p-6 rounded-3xl border border-white/5 shadow-xl relative overflow-hidden group">
-            <div className="flex justify-between items-center mb-8">
+        <div className="bg-card-dark p-6 rounded-3xl border border-white/5 shadow-xl relative overflow-hidden">
+            <div className="flex justify-between items-center mb-10">
                 <div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Trajetória</p>
-                    <h3 className="text-lg font-black text-white">Evolução de Ranking</h3>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Evolução do Ranking</p>
+                    <h3 className="text-sm font-black text-white uppercase">{player.level} — {player.rankingPoints} pts</h3>
                 </div>
                 <div className="text-right">
-                    <p className="text-[10px] font-black text-gray-500 uppercase">Atual</p>
-                    <p className="text-lg font-black text-primary">{player.rankingPoints} pts</p>
+                    <span className="material-symbols-outlined text-primary/30">trending_up</span>
                 </div>
             </div>
-            <div className="relative h-[200px]">
-                <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+            
+            <div className="relative h-[220px]">
+                <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height + 40}`} className="overflow-visible">
+                    {/* Linha do Gráfico */}
                     <path d={d} fill="none" stroke="#607AFB" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                    {points.map((p, i) => (
-                        <circle key={i} cx={p.x} cy={p.y} r="4" fill="#0f1323" stroke="#607AFB" strokeWidth="2" />
-                    ))}
+                    
+                    {/* Pontos Interativos */}
+                    {points.map((p, i) => {
+                      const isSelected = activeRankIndex === i;
+                      return (
+                        <g key={i}>
+                           <circle 
+                              cx={p.x} cy={p.y} r={isSelected ? "8" : "5"} 
+                              fill={isSelected ? "#607AFB" : "#0f1323"} 
+                              stroke="#607AFB" strokeWidth="2"
+                              className="cursor-pointer transition-all duration-300"
+                              onClick={() => setActiveRankIndex(isSelected ? null : i)}
+                           />
+                           {isSelected && (
+                             <foreignObject x={p.x - 40} y={p.y - 65} width="80" height="60" className="overflow-visible pointer-events-none">
+                                <div className="bg-white text-background-dark p-2 rounded-xl shadow-2xl flex flex-col items-center animate-fade-in-up">
+                                   <span className="text-[8px] font-black uppercase tracking-tighter opacity-70 leading-none mb-1">{p.data.date}</span>
+                                   <span className="text-xs font-black">{p.data.points} pts</span>
+                                   <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
+                                </div>
+                             </foreignObject>
+                           )}
+                        </g>
+                      );
+                    })}
+
+                    {/* Labels de Datas Base */}
+                    <text x={paddingX} y={height + 25} textAnchor="start" fontSize="8" fontWeight="bold" fill="#666" className="uppercase">{rankingHistory[0].date}</text>
+                    <text x={width - paddingX} y={height + 25} textAnchor="end" fontSize="8" fontWeight="bold" fill="#666" className="uppercase">{rankingHistory[rankingHistory.length - 1].date}</text>
                 </svg>
-                <div className="flex justify-between mt-4">
-                    <span className="text-[8px] font-bold text-gray-500">{rankingHistory[0].date}</span>
-                    <span className="text-[8px] font-bold text-gray-500">{rankingHistory[rankingHistory.length-1].date}</span>
-                </div>
             </div>
+            <p className="text-[8px] text-gray-500 font-bold text-center uppercase tracking-widest mt-2">Toque num ponto para ver detalhes</p>
         </div>
     );
   };
@@ -312,6 +395,8 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                         <span className="text-[8px] text-gray-500 uppercase font-bold">Assiduidade</span>
                     </div>
                   </div>
+                  {/* Novo Gráfico de Performance */}
+                  {renderPerformanceChart()}
               </div>
           )}
 
