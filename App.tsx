@@ -245,17 +245,17 @@ const App: React.FC = () => {
     
     sortedHistory.forEach(t => {
         if (!t.matches) return;
-        const teamWins = new Map<string, { wins: number, diff: number, pids: string[] }>();
+        const teamResults = new Map<string, { wins: number, diff: number, pids: string[] }>();
         t.matches.forEach(m => {
             const k1 = m.team1.map(p => p.id).sort().join('-');
             const k2 = m.team2.map(p => p.id).sort().join('-');
-            if (!teamWins.has(k1)) teamWins.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p=>p.id) });
-            if (!teamWins.has(k2)) teamWins.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p=>p.id) });
-            const s1 = teamWins.get(k1)!, s2 = teamWins.get(k2)!;
+            if (!teamResults.has(k1)) teamResults.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p=>p.id) });
+            if (!teamResults.has(k2)) teamResults.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p=>p.id) });
+            const s1 = teamResults.get(k1)!, s2 = teamResults.get(k2)!;
             s1.diff += (m.score1 - m.score2); s2.diff += (m.score2 - m.score1);
             if (m.score1 > m.score2) s1.wins++; else if (m.score2 > m.score1) s2.wins++;
         });
-        const standingsArr = Array.from(teamWins.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff);
+        const standingsArr = Array.from(teamResults.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff);
         const championsIds = standingsArr[0]?.pids || [];
         t.matches.forEach(m => {
             const updateP = (p: Player, won: boolean) => {
@@ -417,7 +417,7 @@ const App: React.FC = () => {
       case Screen.TOURNAMENT_RESULTS: ScreenComponent = <TournamentResultsScreen setScreen={setScreen} matches={tournamentHistory[0]?.matches || []} />; break;
       case Screen.GLOBAL_STATS: ScreenComponent = <GlobalStatsScreen history={tournamentHistory.filter(t => t.status === 'finished')} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />; break;
       case Screen.TOURNAMENT_HISTORY: ScreenComponent = <TournamentHistoryScreen history={tournamentHistory} locations={locations} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />; break;
-      case Screen.HISTORY_DETAIL: ScreenComponent = selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} onDeleteTournament={handleDeleteTournament} /> : null; break;
+      case Screen.HISTORY_DETAIL: ScreenComponent = selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} players={playersWithDynamicRanking} onDeleteTournament={handleDeleteTournament} /> : null; break;
       case Screen.TEAM_SETUP: ScreenComponent = <TeamSetupScreen setScreen={setScreen} players={playersWithDynamicRanking.filter(p => activeTournament?.confirmedPlayerIds.includes(p.id))} onStartTournament={handleStartTournament} />; break;
       case Screen.PLAYERS: ScreenComponent = <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer} onDeletePlayer={handleDeletePlayer} />; break;
       case Screen.LOCATIONS: ScreenComponent = <LocationManagerScreen setScreen={setScreen} locations={locations} onAddLocation={handleAddLocation} onUpdateLocation={handleUpdateLocation} onDeleteLocation={handleDeleteLocation} history={tournamentHistory} />; break;

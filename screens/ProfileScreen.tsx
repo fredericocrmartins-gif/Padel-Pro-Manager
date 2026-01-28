@@ -109,15 +109,22 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         if (tMatches.length > 0) {
             myTournaments.push(t);
             
-            const teamWins = new Map<string, number>();
+            const teamResults = new Map<string, { wins: number, diff: number, pids: string[] }>();
             t.matches?.forEach(m => {
                 const k1 = m.team1.map(p => p.id).sort().join('-');
                 const k2 = m.team2.map(p => p.id).sort().join('-');
-                if (m.score1 > m.score2) teamWins.set(k1, (teamWins.get(k1) || 0) + 1);
-                else if (m.score2 > m.score1) teamWins.set(k2, (teamWins.get(k2) || 0) + 1);
+                
+                if (!teamResults.has(k1)) teamResults.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p => p.id) });
+                if (!teamResults.has(k2)) teamResults.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p => p.id) });
+                
+                const tr1 = teamResults.get(k1)!; tr1.diff += (m.score1 - m.score2);
+                const tr2 = teamResults.get(k2)!; tr2.diff += (m.score2 - m.score1);
+
+                if (m.score1 > m.score2) tr1.wins++;
+                else if (m.score2 > m.score1) tr2.wins++;
             });
-            const sortedTeams = Array.from(teamWins.entries()).sort((a,b) => b[1] - a[1]);
-            const winnersIds = sortedTeams.length > 0 ? sortedTeams[0][0].split('-') : [];
+            const sortedResults = Array.from(teamResults.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff);
+            const winnersIds = sortedResults.length > 0 ? sortedResults[0].pids : [];
             if (winnersIds.includes(playerId)) myWonTournaments.push(t);
 
             tMatches.forEach(m => {

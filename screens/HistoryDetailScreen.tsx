@@ -7,12 +7,20 @@ interface HistoryDetailProps {
   setScreen: (screen: Screen) => void;
   tournament: Tournament;
   locations: Location[];
+  players: Player[];
   onDeleteTournament?: (id: string) => void;
 }
 
-export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, tournament, locations, onDeleteTournament }) => {
+export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, tournament, locations, players, onDeleteTournament }) => {
   const matches = tournament.matches || [];
   const loc = locations.find(l => l.id === tournament.locationId);
+
+  // Encontrar os objetos de jogador completos para os IDs confirmados
+  const confirmedPlayers = useMemo(() => {
+    return tournament.confirmedPlayerIds
+      .map(id => players.find(p => p.id === id))
+      .filter((p): p is Player => p !== undefined);
+  }, [tournament.confirmedPlayerIds, players]);
 
   const standings = useMemo(() => {
     const stats = new Map<string, { id: string, teamName: string, wins: number, pointsDiff: number, players: Player[] }>();
@@ -51,6 +59,21 @@ export const HistoryDetailScreen: React.FC<HistoryDetailProps> = ({ setScreen, t
               <span className="material-symbols-outlined">delete</span>
             </button>
         </header>
+
+        {/* Lista de Jogadores Confirmados no Topo */}
+        <section className="flex flex-col gap-3">
+             <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Convocados ({confirmedPlayers.length})</h3>
+             <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+                {confirmedPlayers.map(p => (
+                    <div key={p.id} className="flex flex-col items-center gap-1.5 shrink-0">
+                        {renderGlobalAvatar(p, 'size-12')}
+                        <span className="text-[9px] font-bold text-gray-400 truncate w-12 text-center">
+                            {p.nickname || p.name.split(' ')[0]}
+                        </span>
+                    </div>
+                ))}
+             </div>
+        </section>
 
         {standings.length > 0 && (
             <section className="bg-gradient-to-br from-primary/20 to-card-dark rounded-[2.5rem] p-6 border border-primary/20 shadow-2xl relative overflow-hidden">

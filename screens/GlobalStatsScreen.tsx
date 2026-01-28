@@ -65,7 +65,8 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
       const tPlayers = new Set<string>();
       
       if (t.matches) {
-        const teamWins = new Map<string, number>();
+        // Objeto para calcular o vencedor do torneio
+        const teamResults = new Map<string, { wins: number, diff: number, ids: string[] }>();
 
         t.matches.forEach(m => {
           allMatches.push({ ...m, tournamentId: t.id, locationName });
@@ -81,10 +82,16 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
           const ds1 = duoStats.get(k1)!; ds1.games++;
           const ds2 = duoStats.get(k2)!; ds2.games++;
 
+          if (!teamResults.has(k1)) teamResults.set(k1, { wins: 0, diff: 0, ids: m.team1.map(p => p.id) });
+          if (!teamResults.has(k2)) teamResults.set(k2, { wins: 0, diff: 0, ids: m.team2.map(p => p.id) });
+          
+          const tr1 = teamResults.get(k1)!; tr1.diff += (m.score1 - m.score2);
+          const tr2 = teamResults.get(k2)!; tr2.diff += (m.score2 - m.score1);
+
           if (m.score1 > m.score2) {
-             ds1.wins++; teamWins.set(k1, (teamWins.get(k1) || 0) + 1);
+             ds1.wins++; tr1.wins++;
           } else if (m.score2 > m.score1) {
-             ds2.wins++; teamWins.set(k2, (teamWins.get(k2) || 0) + 1);
+             ds2.wins++; tr2.wins++;
           }
 
           [m.team1, m.team2].forEach((team, idx) => {
@@ -105,9 +112,14 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
           });
         });
 
-        const sortedTeams = Array.from(teamWins.entries()).sort((a,b) => b[1] - a[1]);
-        if (sortedTeams.length > 0) {
-          sortedTeams[0][0].split('-').forEach(id => { const ps = pStats.get(id); if (ps) ps.tournamentsWon++; });
+        // Determinar o vencedor do torneio (Mesma lógica do HistoryDetail)
+        const sortedStandings = Array.from(teamResults.values()).sort((a, b) => b.wins - a.wins || b.diff - a.diff);
+        if (sortedStandings.length > 0) {
+          const winners = sortedStandings[0].ids;
+          winners.forEach(id => {
+            const ps = pStats.get(id);
+            if (ps) ps.tournamentsWon++;
+          });
         }
       }
       tPlayers.forEach(id => { const ps = pStats.get(id); if (ps) ps.tournamentsPlayed++; });
@@ -139,7 +151,7 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
       totalTournaments: filteredHistory.length,
       totalMatches,
       totalPoints,
-      activePlayers: activePlayers.sort((a,b) => b.balance - a.balance || b.wins - a.wins),
+      activePlayers: activePlayers.sort((a,b) => (b.tournamentsWon - a.tournamentsWon) || (b.balance - a.balance)),
       mostWins: [...activePlayers].sort((a,b) => b.wins - a.wins),
       mostAttendance: [...activePlayers].sort((a,b) => b.tournamentsPlayed - a.tournamentsPlayed),
       mostPointsELO: [...activePlayers].sort((a,b) => (b.rankingPoints || 0) - (a.rankingPoints || 0)),
@@ -217,7 +229,7 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Ranking de Dados dos Jogadores</h3>
-          <span className="text-[8px] text-primary font-bold uppercase">Ordenado por Saldo</span>
+          <span className="text-[8px] text-primary font-bold uppercase">Ord. Títulos</span>
         </div>
         <div className="bg-card-dark rounded-[2rem] border border-white/5 shadow-xl overflow-hidden">
           <div className="overflow-x-auto hide-scrollbar">
@@ -228,10 +240,10 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
                   <th className="px-2 py-3 text-[8px] font-black text-gray-500 uppercase text-center">J</th>
                   <th className="px-2 py-3 text-[8px] font-black text-gray-500 uppercase text-center">V</th>
                   <th className="px-2 py-3 text-[8px] font-black text-gray-500 uppercase text-center">D</th>
-                  <th className="px-2 py-3 text-[8px] font-black text-primary uppercase text-center">Saldo</th>
+                  <th className="px-2 py-3 text-[8px] font-black text-primary uppercase text-center">S</th>
                   <th className="px-2 py-3 text-[8px] font-black text-emerald-400 uppercase text-center">PG</th>
                   <th className="px-2 py-3 text-[8px] font-black text-red-400 uppercase text-center">PS</th>
-                  <th className="px-3 py-3 text-[8px] font-black text-yellow-500 uppercase text-center">TG</th>
+                  <th className="px-3 py-3 text-[8px] font-black text-yellow-500 uppercase text-center bg-yellow-500/10">Tít</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -252,7 +264,7 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
                     </td>
                     <td className="px-2 py-3 text-[10px] font-bold text-emerald-500/70 text-center">{p.pointsScored}</td>
                     <td className="px-2 py-3 text-[10px] font-bold text-red-500/70 text-center">{p.pointsConceded}</td>
-                    <td className="px-3 py-3 text-[10px] font-black text-yellow-500 text-center">{p.tournamentsWon}</td>
+                    <td className="px-3 py-3 text-[10px] font-black text-yellow-500 text-center bg-yellow-500/10">{p.tournamentsWon}</td>
                   </tr>
                 ))}
               </tbody>
