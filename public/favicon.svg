@@ -1,76 +1,48 @@
 
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <!-- Gradiente para o fundo "Splash" -->
-    <linearGradient id="splashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#93C5FD" /> <!-- Blue 300 -->
-      <stop offset="100%" stop-color="#3B82F6" /> <!-- Blue 500 -->
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#607AFB" />
+      <stop offset="100%" stop-color="#3b82f6" />
     </linearGradient>
-    <filter id="stickerShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.3"/>
-    </filter>
   </defs>
 
-  <!-- Fundo Splash Dinâmico (Swoosh Azul) -->
-  <path d="M256 50 C 140 50 50 140 50 256 C 50 370 140 460 256 460 C 370 460 460 370 460 256 C 460 140 370 50 256 50 Z" fill="#eff6ff" />
-  <path d="M80 300 Q 120 100 420 140 T 430 400 Q 280 480 80 300 Z" fill="url(#splashGrad)" opacity="0.9" />
+  <!-- Fundo: Retângulo Arredondado Escuro (Brand Dark) -->
+  <rect width="512" height="512" rx="120" fill="#0f1323" />
 
-  <!-- Grupo Principal com Sombra -->
-  <g filter="url(#stickerShadow)">
+  <!-- Elemento Decorativo de Fundo (Subtil) -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#1c223a" stroke-width="2" opacity="0.5" />
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#1c223a" stroke-width="2" opacity="0.5" />
+
+  <!-- Ícone da Raquete (Geométrico e Tech) -->
+  <g transform="translate(256, 245)">
+    <!-- Cabo -->
+    <path d="M-22 135 L-22 195 Q-22 215 0 215 Q 22 215 22 195 L 22 135" fill="#1e293b" stroke="url(#primaryGrad)" stroke-width="12" />
+    <line x1="-22" y1="155" x2="22" y2="155" stroke="url(#primaryGrad)" stroke-width="6" />
+    <line x1="-22" y1="175" x2="22" y2="175" stroke="url(#primaryGrad)" stroke-width="6" />
+
+    <!-- Cabeça da Raquete -->
+    <path d="M0 135 C -90 135 -135 80 -135 0 C -135 -90 -80 -145 0 -145 C 80 -145 135 -90 135 0 C 135 80 90 135 0 135 Z" 
+          fill="none" stroke="url(#primaryGrad)" stroke-width="24" />
     
-    <!-- Raquete (Trás) -->
-    <g transform="translate(210, 190) rotate(-30)">
-      <!-- Cabo -->
-      <rect x="-22" y="110" width="44" height="110" rx="10" fill="#1E293B" />
-      <path d="M-22 130 H22 M-22 150 H22 M-22 170 H22 M-22 190 H22" stroke="#334155" stroke-width="4" />
-      
-      <!-- Cabeça da Raquete -->
-      <path d="M0 110 L-45 10 L45 10 L0 110 Z" fill="#FFF" stroke="#1E293B" stroke-width="8" stroke-linejoin="round"/>
-      <ellipse cx="0" cy="-60" rx="95" ry="115" fill="#FFF" stroke="#1E293B" stroke-width="10"/>
-      
-      <!-- Furos -->
-      <g fill="#1E293B" opacity="0.8">
-         <circle cx="0" cy="-60" r="7"/>
-         <circle cx="35" cy="-60" r="7"/><circle cx="-35" cy="-60" r="7"/>
-         <circle cx="0" cy="-25" r="7"/><circle cx="0" cy="-95" r="7"/>
-         <circle cx="35" cy="-25" r="7"/><circle cx="-35" cy="-25" r="7"/>
-         <circle cx="35" cy="-95" r="7"/><circle cx="-35" cy="-95" r="7"/>
-         <circle cx="65" cy="-60" r="7"/><circle cx="-65" cy="-60" r="7"/>
-      </g>
-    </g>
+    <!-- Coração da Raquete -->
+    <path d="M-22 135 L-40 90" fill="none" stroke="url(#primaryGrad)" stroke-width="16" stroke-linecap="round" />
+    <path d="M22 135 L40 90" fill="none" stroke="url(#primaryGrad)" stroke-width="16" stroke-linecap="round" />
 
-    <!-- Bola (Centro-Direita) -->
-    <g transform="translate(370, 230)">
-      <circle r="42" fill="#FFF" stroke="#1E293B" stroke-width="8"/>
-      <path d="M-25 -22 Q 0 0 -25 22 M 25 -22 Q 0 0 25 22" fill="none" stroke="#1E293B" stroke-width="6" stroke-linecap="round"/>
-    </g>
-
-    <!-- Prancheta (Frente) -->
-    <g transform="translate(330, 360) rotate(-12)">
-       <rect x="-65" y="-85" width="130" height="170" rx="18" fill="#FFF" stroke="#1E293B" stroke-width="10"/>
-       <!-- Clip Superior -->
-       <rect x="-35" y="-95" width="70" height="25" rx="6" fill="#94A3B8" stroke="#1E293B" stroke-width="6"/>
-       <circle cx="0" cy="-85" r="6" fill="#FFF"/>
-       
-       <!-- Checklist -->
-       <g transform="translate(-45, -45)">
-         <!-- Item 1 -->
-         <path d="M0 0 L12 12 L28 -8" fill="none" stroke="#10B981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-         <line x1="45" y1="5" x2="100" y2="5" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
-         <!-- Item 2 -->
-         <path d="M0 45 L12 57 L28 37" fill="none" stroke="#10B981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-         <line x1="45" y1="50" x2="100" y2="50" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
-         <!-- Item 3 -->
-         <path d="M0 90 L12 102 L28 82" fill="none" stroke="#10B981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-         <line x1="45" y1="95" x2="100" y2="95" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
-       </g>
-    </g>
-    
-    <!-- Estrelas Decorativas -->
-    <g fill="#1E293B">
-        <path d="M110 100 L118 125 L145 132 L118 140 L110 165 L102 140 L75 132 L102 125 Z" />
-        <path d="M430 110 L434 122 L445 125 L434 128 L430 140 L426 128 L415 125 L426 122 Z" />
-        <path d="M90 360 L94 372 L105 375 L94 378 L90 390 L86 378 L75 375 L86 372 Z" />
+    <!-- Padrão de Furos (Matrix 3x3 Minimalista) -->
+    <g fill="#fff">
+      <circle cx="0" cy="0" r="12" />
+      <circle cx="50" cy="0" r="10" opacity="0.5" />
+      <circle cx="-50" cy="0" r="10" opacity="0.5" />
+      <circle cx="0" cy="50" r="10" opacity="0.5" />
+      <circle cx="0" cy="-50" r="10" opacity="0.5" />
+      <circle cx="40" cy="40" r="8" opacity="0.2" />
+      <circle cx="-40" cy="-40" r="8" opacity="0.2" />
+      <circle cx="40" cy="-40" r="8" opacity="0.2" />
+      <circle cx="-40" cy="40" r="8" opacity="0.2" />
     </g>
   </g>
+
+  <!-- Bola de Padel (Acento de Cor) -->
+  <circle cx="380" cy="110" r="28" fill="#10B981" stroke="#0f1323" stroke-width="4" />
 </svg>
