@@ -281,7 +281,7 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-white/5">
-                  <th className="px-4 py-3 text-[8px] font-black text-gray-500 uppercase">Jogador</th>
+                  <th className="px-4 py-3 text-[8px] font-black text-gray-500 uppercase min-w-[120px]">Jogador</th>
                   <SortHeader label="J" sortKey="gamesPlayed" />
                   <SortHeader label="V" sortKey="wins" />
                   <SortHeader label="D" sortKey="losses" />
@@ -303,11 +303,11 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
               <tbody className="divide-y divide-white/5">
                 {sortedActivePlayers.map((p, idx) => (
                   <tr key={p.id} className={`${idx === 0 && sortConfig.key === 'tournamentsWon' ? 'bg-primary/5' : ''} active:bg-white/5 transition-colors`} onClick={() => onViewPlayer?.(p.id)}>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-black text-gray-700 w-3">{idx + 1}</span>
+                        <span className="text-[9px] font-black text-gray-700 w-3 shrink-0">{idx + 1}</span>
                         {renderGlobalAvatar(p, 'size-7')}
-                        <span className="text-[10px] font-bold text-white truncate max-w-[60px]">{p.nickname || p.name.split(' ')[0]}</span>
+                        <span className="text-[10px] font-black text-white">{p.nickname || p.name}</span>
                       </div>
                     </td>
                     <td className={`px-2 py-3 text-[10px] font-bold text-center ${sortConfig.key === 'gamesPlayed' ? 'text-primary' : 'text-white'}`}>{p.gamesPlayed}</td>
