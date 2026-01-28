@@ -47,6 +47,80 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
     alert("Código SQL copiado! Cole-o no 'SQL Editor' do Supabase e execute.");
   };
 
+  // --- FUNÇÕES DE EXPORTAÇÃO CSV ---
+
+  const downloadCSV = (content: string, filename: string) => {
+    // Adiciona o BOM para o Excel abrir com acentos corretos (UTF-8)
+    const bom = "\uFEFF"; 
+    const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const escapeCSV = (str: string | undefined) => {
+    if (!str) return '""';
+    return `"${str.toString().replace(/"/g, '""')}"`;
+  };
+
+  const handleExportPlayersCSV = () => {
+    const headers = ['ID', 'Nome', 'Apelido', 'Alcunha', 'Mão', 'Nível', 'Link Imagem'];
+    const rows = players.map(p => [
+      p.id,
+      p.name,
+      p.lastName || '',
+      p.nickname || '',
+      p.hand || 'Destro',
+      p.level || '',
+      p.image || ''
+    ].map(escapeCSV).join(','));
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    downloadCSV(csvContent, `padel_jogadores_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  const handleExportMatchesCSV = () => {
+    const headers = ['Data', 'Hora', 'Local', 'Ronda', 'Campo', 'Equipa 1', 'Equipa 2', 'Score 1', 'Score 2', 'Vencedor', 'Diferença Pontos'];
+    const rows: string[] = [];
+
+    history.forEach(t => {
+      const locName = locations.find(l => l.id === t.locationId)?.name || 'Desconhecido';
+      const date = new Date(t.date).toLocaleDateString('pt-PT');
+      
+      t.matches?.forEach(m => {
+        const team1Names = m.team1.map(p => p.nickname || p.name).join(' & ');
+        const team2Names = m.team2.map(p => p.nickname || p.name).join(' & ');
+        
+        let winner = 'Empate';
+        if (m.score1 > m.score2) winner = team1Names;
+        else if (m.score2 > m.score1) winner = team2Names;
+
+        const diff = Math.abs(m.score1 - m.score2);
+
+        rows.push([
+          date,
+          t.time,
+          locName,
+          m.round,
+          m.court,
+          team1Names,
+          team2Names,
+          m.score1,
+          m.score2,
+          winner,
+          diff
+        ].map(escapeCSV).join(','));
+      });
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    downloadCSV(csvContent, `padel_historico_jogos_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div className="flex flex-col gap-8 px-4 pt-12 pb-32 animate-fade-in">
       <header>
@@ -112,6 +186,27 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
       </section>
 
       <section className="space-y-4">
+        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Exportação de Dados (Excel/CSV)</h3>
+        <div className="bg-card-dark rounded-3xl border border-white/5 p-6 flex flex-col gap-3">
+             <button 
+              onClick={handleExportMatchesCSV}
+              className="w-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold py-4 rounded-2xl text-xs uppercase hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg">table_view</span>
+              Exportar Histórico de Jogos
+            </button>
+            <button 
+              onClick={handleExportPlayersCSV}
+              className="w-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold py-4 rounded-2xl text-xs uppercase hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg">groups</span>
+              Exportar Jogadores
+            </button>
+            <p className="text-[9px] text-gray-500 text-center pt-1">O formato CSV é compatível com Microsoft Excel e Google Sheets.</p>
+        </div>
+      </section>
+
+      <section className="space-y-4">
         <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Setup Supabase</h3>
         <div className="bg-card-dark rounded-3xl border border-white/5 p-6 space-y-3">
             <p className="text-[10px] text-gray-400">Se a sincronização não funcionar (Erro 404), corre este script no SQL Editor do Supabase para criar as tabelas necessárias.</p>
@@ -126,7 +221,7 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
       </section>
 
       <section className="space-y-4">
-        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Ficheiros de Backup</h3>
+        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Ficheiros de Backup (JSON)</h3>
         <div className="bg-card-dark rounded-3xl border border-white/5 p-6 flex flex-col gap-3">
             <button 
               onClick={() => {
@@ -140,7 +235,7 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
               }}
               className="w-full bg-white/5 text-white border border-white/10 font-bold py-4 rounded-2xl text-xs uppercase hover:bg-white/10 transition-all"
             >
-              Exportar para JSON
+              Exportar App Data (JSON)
             </button>
         </div>
       </section>

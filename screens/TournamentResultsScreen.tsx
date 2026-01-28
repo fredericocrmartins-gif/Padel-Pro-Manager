@@ -30,27 +30,34 @@ export const TournamentResultsScreen: React.FC<ResultsProps> = ({ setScreen, mat
   const handleShare = async () => {
     if (standings.length === 0) return;
 
-    let shareText = `🏆 *PADEL PRO - RESULTADOS DO TORNEIO*\n\n`;
-    shareText += `🥇 *CAMPEÕES:* ${winner.teamName.toUpperCase()}\n`;
-    shareText += `📊 Registo: ${winner.wins} Vitórias | Saldo: ${winner.pointsDiff > 0 ? '+' : ''}${winner.pointsDiff}\n\n`;
-    shareText += `--- *CLASSIFICAÇÃO GERAL* ---\n`;
+    // Data de hoje (assumindo que o resultado é de agora)
+    const today = new Date().toLocaleDateString('pt-PT');
+
+    let shareText = `🎾 *PADEL PRO - RELATÓRIO FINAL*\n`;
+    shareText += `📅 ${today}\n\n`;
     
+    shareText += `🏆 *CAMPEÕES*\n`;
+    shareText += `🔥 ${winner.teamName.toUpperCase()}\n`;
+    shareText += `✨ ${winner.wins} Vitórias (Saldo ${winner.pointsDiff > 0 ? '+' : ''}${winner.pointsDiff})\n\n`;
+    
+    shareText += `📊 *CLASSIFICAÇÃO GERAL*\n`;
     standings.forEach((team, idx) => {
         const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🔹';
-        shareText += `${medal} ${idx + 1}º ${team.teamName} (${team.wins}V | ${team.pointsDiff > 0 ? '+' : ''}${team.pointsDiff})\n`;
+        const saldo = team.pointsDiff > 0 ? `+${team.pointsDiff}` : `${team.pointsDiff}`;
+        shareText += `${medal} ${team.teamName}\n   └ ${team.wins}V | ${saldo} pts\n`;
     });
 
-    shareText += `\n_Gerado por Padel Pro Manager_ 🎾`;
+    shareText += `\n🚀 _Gerado por Padel Pro Manager_`;
 
     try {
         if (navigator.share) {
             await navigator.share({
-                title: 'Resultados do Torneio de Padel',
+                title: 'Resultados Padel',
                 text: shareText
             });
         } else {
             await navigator.clipboard.writeText(shareText);
-            alert('Resultados copiados para a área de transferência! Prontos para colar.');
+            alert('Relatório copiado para a área de transferência!');
         }
     } catch (err) {
         console.error('Erro ao partilhar:', err);
@@ -138,7 +145,7 @@ export const TournamentResultsScreen: React.FC<ResultsProps> = ({ setScreen, mat
                 className="w-full bg-white text-background-dark font-black text-sm py-5 rounded-3xl flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
             >
                 <span className="material-symbols-outlined">share</span>
-                <span>PARTILHAR RESULTADOS</span>
+                <span>PARTILHAR NO WHATSAPP</span>
             </button>
 
             <button 
