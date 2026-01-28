@@ -11,8 +11,46 @@ interface HistoryProps {
 
 export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locations, onViewTournament, onDeleteTournament }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [showCancelled, setShowCancelled] = useState(false);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
+  // Lógica do Calendário
+  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const currentYear = calendarDate.getFullYear();
+  const currentMonth = calendarDate.getMonth();
+  
+  const days = useMemo(() => {
+    const totalDays = daysInMonth(currentYear, currentMonth);
+    const firstDay = firstDayOfMonth(currentYear, currentMonth);
+    const daysArray = [];
+    
+    // Espaços vazios para alinhar o primeiro dia
+    for (let i = 0; i < firstDay; i++) {
+      daysArray.push(null);
+    }
+    
+    for (let i = 1; i <= totalDays; i++) {
+      daysArray.push(i);
+    }
+    
+    return daysArray;
+  }, [currentYear, currentMonth]);
+
+  const tournamentDates = useMemo(() => {
+    const dates = new Set<string>();
+    history.forEach(t => {
+      if (t.status === 'finished' || (showCancelled && t.status === 'cancelled')) {
+        const d = new Date(t.date);
+        if (d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
+          dates.add(d.getDate().toString());
+        }
+      }
+    });
+    return dates;
+  }, [history, currentYear, currentMonth, showCancelled]);
 
   const filteredHistory = useMemo(() => {
     return history
@@ -22,131 +60,178 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
         const matchesSearch = locName.toLowerCase().includes(searchTerm.toLowerCase());
         
         const tDate = new Date(t.date);
-        const monthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
-        const matchesMonth = selectedMonth === 'all' || monthYear === selectedMonth;
+        const matchesDay = selectedDay === null || (
+          tDate.getDate() === selectedDay && 
+          tDate.getMonth() === currentMonth && 
+          tDate.getFullYear() === currentYear
+        );
         
-        // Exibe se estiver finished ou (se showCancelled for true, também cancelled)
         const statusMatch = t.status === 'finished' || (showCancelled && t.status === 'cancelled');
         
-        return matchesSearch && matchesMonth && statusMatch;
+        return matchesSearch && matchesDay && statusMatch;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [history, searchTerm, selectedMonth, locations, showCancelled]);
+  }, [history, searchTerm, selectedDay, currentMonth, currentYear, locations, showCancelled]);
 
-  const months = useMemo(() => {
-    const m = new Set<string>();
-    history.forEach(t => {
-      const d = new Date(t.date);
-      m.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-    });
-    return Array.from(m).sort().reverse();
-  }, [history]);
+  const changeMonth = (offset: number) => {
+    const newDate = new Date(currentYear, currentMonth + offset, 1);
+    setCalendarDate(newDate);
+    setSelectedDay(null);
+  };
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6 pb-32 animate-fade-in">
-      <header>
-        <h1 className="text-3xl font-black text-white">Registo <br/><span className="text-primary">Histórico</span></h1>
-        <p className="text-gray-500 text-sm mt-1">Consulte todos os torneios realizados.</p>
+      <header className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-black text-white">Registo <br/><span className="text-primary">Histórico</span></h1>
+          <p className="text-gray-500 text-sm mt-1">Consulte todos os torneios realizados.</p>
+        </div>
+        <button 
+          onClick={() => setShowCancelled(!showCancelled)} 
+          className={`size-12 rounded-2xl border flex items-center justify-center transition-all ${showCancelled ? 'bg-red-500/10 border-red-500/50 text-red-500' : 'bg-card-dark border-white/5 text-gray-500'}`}
+          title="Ver Cancelados"
+        >
+          <span className="material-symbols-outlined">{showCancelled ? 'event_busy' : 'event_available'}</span>
+        </button>
       </header>
 
-      <div className="space-y-3">
+      {/* Calendário Interativo */}
+      <section className="bg-card-dark rounded-[2.5rem] border border-white/5 p-6 shadow-xl overflow-hidden relative group">
+        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+          <span className="material-symbols-outlined text-8xl">calendar_month</span>
+        </div>
+
+        <div className="flex items-center justify-between mb-6 relative z-10">
+          <button onClick={() => changeMonth(-1)} className="size-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+            <span className="material-symbols-outlined text-xl">chevron_left</span>
+          </button>
+          <div className="text-center">
+            <h3 className="text-sm font-black text-white uppercase tracking-widest">
+              {calendarDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
+            </h3>
+          </div>
+          <button onClick={() => changeMonth(1)} className="size-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+            <span className="material-symbols-outlined text-xl">chevron_right</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
+            <div key={i} className="text-center text-[8px] font-black text-gray-600 uppercase mb-2">{day}</div>
+          ))}
+          {days.map((day, i) => {
+            const hasTournament = day !== null && tournamentDates.has(day.toString());
+            const isSelected = selectedDay === day;
+            const isToday = day !== null && new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
+            
+            return (
+              <button
+                key={i}
+                disabled={day === null}
+                onClick={() => setSelectedDay(isSelected ? null : day)}
+                className={`
+                  relative h-10 rounded-xl flex flex-col items-center justify-center transition-all text-[10px] font-bold
+                  ${day === null ? 'opacity-0' : 'hover:bg-white/5'}
+                  ${isSelected ? 'bg-primary text-background-dark scale-110 shadow-lg shadow-primary/20 z-10' : 'text-gray-400'}
+                  ${isToday && !isSelected ? 'border border-primary/30 text-primary' : ''}
+                `}
+              >
+                {day}
+                {hasTournament && !isSelected && (
+                  <div className="absolute bottom-1.5 size-1 rounded-full bg-primary shadow-[0_0_5px_rgba(96,122,251,0.5)]"></div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        
+        {selectedDay && (
+          <button 
+            onClick={() => setSelectedDay(null)}
+            className="w-full mt-4 py-2 bg-white/5 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+            Limpar Filtro de Data
+          </button>
+        )}
+      </section>
+
+      <div className="space-y-4">
         <div className="relative">
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">search</span>
           <input 
             type="text" 
-            placeholder="Filtrar por local..." 
+            placeholder="Pesquisar local..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-card-dark border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm text-white focus:ring-2 focus:ring-primary/50 outline-none transition-all"
           />
         </div>
 
-        <div className="flex gap-2 items-center">
-             <button onClick={() => setShowCancelled(!showCancelled)} className={`px-3 py-2 rounded-xl border flex items-center gap-2 ${showCancelled ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-card-dark border-white/10 text-gray-500'}`}>
-                 <span className="material-symbols-outlined text-[16px]">{showCancelled ? 'check_box' : 'check_box_outline_blank'}</span>
-                 <span className="text-[10px] font-bold uppercase">Cancelados</span>
-             </button>
-             <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar flex-1">
-              <button 
-                onClick={() => setSelectedMonth('all')}
-                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap border transition-all ${selectedMonth === 'all' ? 'bg-primary border-primary text-background-dark' : 'bg-white/5 border-white/10 text-gray-500'}`}
-              >
-                Todos
-              </button>
-              {months.map(m => {
-                const [year, month] = m.split('-');
-                const date = new Date(parseInt(year), parseInt(month) - 1);
-                const label = date.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
-                return (
-                  <button 
-                    key={m}
-                    onClick={() => setSelectedMonth(m)}
-                    className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap border transition-all ${selectedMonth === m ? 'bg-primary border-primary text-background-dark' : 'bg-white/5 border-white/10 text-gray-500'}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        {filteredHistory.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 opacity-30">
-            <span className="material-symbols-outlined text-6xl mb-4">history_toggle_off</span>
-            <p className="text-sm font-bold">Nenhum registo encontrado</p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+              {selectedDay ? `Resultados para dia ${selectedDay}` : 'Lista de Torneios'}
+            </h3>
+            <span className="text-[10px] font-bold text-primary">{filteredHistory.length} encontrados</span>
           </div>
-        ) : (
-          filteredHistory.map(t => {
-            const loc = locations.find(l => l.id === t.locationId);
-            const locName = loc?.name || 'Local Desconhecido';
-            const isCancelled = t.status === 'cancelled';
 
-            return (
-              <div key={t.id} className={`relative group ${isCancelled ? 'opacity-60 grayscale-[0.5]' : ''}`}>
-                <button 
-                  onClick={() => !isCancelled && onViewTournament(t)}
-                  disabled={isCancelled}
-                  className="w-full bg-card-dark p-5 rounded-3xl border border-white/5 hover:border-primary/30 transition-all text-left group active:scale-[0.98] disabled:cursor-not-allowed"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <span className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${isCancelled ? 'text-red-500' : 'text-primary'}`}>
-                        {new Date(t.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        {isCancelled && ' (CANCELADO)'}
-                      </span>
-                      <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{locName}</h3>
+          {filteredHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 opacity-30">
+              <span className="material-symbols-outlined text-6xl mb-4">history_toggle_off</span>
+              <p className="text-sm font-bold">Nenhum registo encontrado</p>
+            </div>
+          ) : (
+            filteredHistory.map(t => {
+              const loc = locations.find(l => l.id === t.locationId);
+              const locName = loc?.name || 'Local Desconhecido';
+              const isCancelled = t.status === 'cancelled';
+
+              return (
+                <div key={t.id} className={`relative group ${isCancelled ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                  <button 
+                    onClick={() => !isCancelled && onViewTournament(t)}
+                    disabled={isCancelled}
+                    className="w-full bg-card-dark p-5 rounded-3xl border border-white/5 hover:border-primary/30 transition-all text-left group active:scale-[0.98] disabled:cursor-not-allowed"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <span className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${isCancelled ? 'text-red-500' : 'text-primary'}`}>
+                          {new Date(t.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {isCancelled && ' (CANCELADO)'}
+                        </span>
+                        <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{locName}</h3>
+                      </div>
+                      {!isCancelled && (
+                          <div className="size-10 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                              <span className="material-symbols-outlined text-gray-500 group-hover:text-primary">chevron_right</span>
+                          </div>
+                      )}
                     </div>
-                    {!isCancelled && (
-                        <div className="size-10 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                            <span className="material-symbols-outlined text-gray-500 group-hover:text-primary">chevron_right</span>
-                        </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-gray-500">
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px]">sports_tennis</span>
-                      <span className="text-[10px] font-bold uppercase">{t.matches?.length || 0} Jogos</span>
+                    
+                    <div className="flex items-center gap-4 text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px]">sports_tennis</span>
+                        <span className="text-[10px] font-bold uppercase">{t.matches?.length || 0} Jogos</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px]">schedule</span>
+                        <span className="text-[10px] font-bold uppercase">{t.time} • {t.duration}h</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px]">schedule</span>
-                      <span className="text-[10px] font-bold uppercase">{t.time} • {t.duration}h</span>
-                    </div>
-                  </div>
-                </button>
-                {/* Botão de eliminar flutuante */}
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onDeleteTournament?.(t.id); }}
-                  className="absolute bottom-4 right-4 p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 z-10"
-                >
-                  <span className="material-symbols-outlined text-base">delete</span>
-                </button>
-              </div>
-            );
-          })
-        )}
+                  </button>
+                  {/* Botão de eliminar flutuante */}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onDeleteTournament?.(t.id); }}
+                    className="absolute bottom-4 right-4 p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 z-10"
+                  >
+                    <span className="material-symbols-outlined text-base">delete</span>
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );
