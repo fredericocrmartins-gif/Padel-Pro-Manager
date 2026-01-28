@@ -62,8 +62,8 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
     document.body.removeChild(link);
   };
 
-  const escapeCSV = (str: string | undefined) => {
-    if (!str) return '""';
+  const escapeCSV = (str: string | number | undefined | null) => {
+    if (str === undefined || str === null) return '""';
     return `"${str.toString().replace(/"/g, '""')}"`;
   };
 
