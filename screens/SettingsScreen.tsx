@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Screen, Player, Location, Tournament, CloudConfig } from '../types';
 
@@ -21,6 +22,33 @@ export const SettingsScreen: React.FC<SettingsProps> = ({ setScreen, players, lo
   const handleSaveCloud = () => {
     onUpdateCloudConfig({ url, key, enabled: !!(url && key) });
     alert('Configurações de base de dados guardadas localmente!');
+  };
+
+  const handleShareConfig = async () => {
+    if (!url || !key) {
+        alert("Preencha ou guarde as configurações primeiro.");
+        return;
+    }
+
+    const shareText = `🎾 *PADEL MANAGER - ACESSO CLOUD*\n\n` +
+        `Para sincronizares os dados do torneio, vai a Configurações > Base de Dados Cloud e insere estes dados:\n\n` +
+        `🔹 *URL DO PROJETO:*\n${url}\n\n` +
+        `🔑 *ANON API KEY:*\n${key}\n\n` +
+        `Bons jogos!`;
+
+    try {
+        if (navigator.share) {
+            await navigator.share({
+                title: 'Configuração Padel Manager',
+                text: shareText
+            });
+        } else {
+            await navigator.clipboard.writeText(shareText);
+            alert('Dados de acesso copiados! Podes colar no WhatsApp.');
+        }
+    } catch (err) {
+        console.error('Erro ao partilhar:', err);
+    }
   };
 
   const sqlScript = `
@@ -200,6 +228,18 @@ CREATE POLICY "Public Access Tournaments" ON tournaments FOR ALL USING (true) WI
                <span className="text-[9px] text-orange-200">App em modo offline. Use as Variáveis de Ambiente no GitHub para sincronização oficial.</span>
              </div>
           )}
+
+          {/* Botão de Partilha de Credenciais */}
+          {url && key && (
+              <button 
+                onClick={handleShareConfig}
+                className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/10 font-black py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all mt-2"
+              >
+                <span className="material-symbols-outlined">share</span>
+                PARTILHAR ACESSO
+              </button>
+          )}
+
         </div>
       </section>
 
