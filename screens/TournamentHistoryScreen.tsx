@@ -14,7 +14,7 @@ export const TournamentHistoryScreen: React.FC<HistoryProps> = ({ history, locat
   const [showCancelled, setShowCancelled] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  // Alterado para false: o calendário começa recolhido por defeito
+  // Definido como false: o calendário começa recolhido por defeito
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
 
   // Lógica do Calendário

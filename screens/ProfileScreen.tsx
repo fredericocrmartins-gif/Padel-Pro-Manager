@@ -65,7 +65,6 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
   const [isEditing, setIsEditing] = useState(false);
   const [drillDown, setDrillDown] = useState<{ title: string; type: 'matches' | 'tournaments'; items: any[] } | null>(null);
   
-  // States para Tooltips interativos
   const [activePerfIndex, setActivePerfIndex] = useState<number | null>(null);
   const [activeRankIndex, setActiveRankIndex] = useState<number | null>(null);
 
@@ -99,8 +98,6 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
     const partners = new Map<string, { id: string, name: string, image: string, wins: number, games: number, matches: Match[] }>();
     const rivals = new Map<string, { id: string, name: string, image: string, winsAgainst: number, lossesAgainst: number, games: number, matches: Match[] }>();
 
-    let currentWinStreak = 0;
-    let maxWinStreak = 0;
     let pointsScored = 0;
     let pointsConceded = 0;
 
@@ -137,13 +134,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                 pointsScored += inTeam1 ? m.score1 : m.score2;
                 pointsConceded += inTeam1 ? m.score2 : m.score1;
 
-                if (won) {
-                    myWonMatches.push(m);
-                    currentWinStreak++;
-                    maxWinStreak = Math.max(maxWinStreak, currentWinStreak);
-                } else {
-                    currentWinStreak = 0;
-                }
+                if (won) myWonMatches.push(m);
 
                 const myTeam = inTeam1 ? m.team1 : m.team2;
                 const oppTeam = inTeam1 ? m.team2 : m.team1;
@@ -164,10 +155,29 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         }
     });
 
-    const rivalsList = Array.from(rivals.values()).map(r => ({
-        ...r,
-        balance: r.winsAgainst - r.lossesAgainst
-    }));
+    const rivalsList = Array.from(rivals.values()).map(r => ({ ...r, balance: r.winsAgainst - r.lossesAgainst }));
+
+    // ORDENAÇÃO CRONOLÓGICA: Da esquerda para a direita (Mais antigo -> Mais recente)
+    // Regra: Por data e por ronda (1, 2, 3)
+    const sortedMatches = [...myMatches].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return a.round - b.round;
+    });
+
+    let maxWinStreak = 0;
+    let currentStreak = 0;
+    sortedMatches.forEach(m => {
+        const inT1 = m.team1.some(p => p.id === playerId);
+        const won = inT1 ? m.score1 > m.score2 : m.score2 > m.score1;
+        if (won) {
+            currentStreak++;
+            maxWinStreak = Math.max(maxWinStreak, currentStreak);
+        } else {
+            currentStreak = 0;
+        }
+    });
 
     return {
         totalMatches: myMatches.length,
@@ -175,7 +185,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         winRate: myMatches.length > 0 ? Math.round((myWonMatches.length / myMatches.length) * 100) : 0,
         myTournaments,
         myWonTournaments,
-        myMatches: myMatches.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        myMatches: sortedMatches,
         pointsScored,
         pointsConceded,
         maxWinStreak,
@@ -188,14 +198,15 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
   if (!player || !stats) return null;
 
   const renderPerformanceChart = () => {
-    const last10 = stats.myMatches.slice(0, 10).reverse();
+    // Últimos 10 jogos ordenados cronologicamente (Esquerda = Antigo, Direita = Novo)
+    const last10 = stats.myMatches.slice(-10);
     if (last10.length === 0) return null;
 
     return (
       <div className="bg-card-dark p-6 rounded-3xl border border-white/5 space-y-4 shadow-lg animate-fade-in">
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-[10px] font-black text-primary uppercase tracking-widest">Forma Recente</p>
+            <p className="text-[10px] font-black text-primary uppercase tracking-widest">Performance</p>
             <h3 className="text-sm font-black text-white uppercase">Últimos 10 Jogos</h3>
           </div>
           <div className="flex gap-1">
@@ -209,28 +220,38 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
           </div>
         </div>
 
-        <div className="grid grid-cols-10 gap-1.5 h-12 relative">
+        <div className="grid grid-cols-10 gap-1.5 h-14 relative">
           {last10.map((m, idx) => {
             const inT1 = m.team1.some(p => p.id === playerId);
             const won = inT1 ? m.score1 > m.score2 : m.score2 > m.score1;
             const isActive = activePerfIndex === idx;
+            const partner = (inT1 ? m.team1 : m.team2).find(p => p.id !== playerId)?.nickname || 'N/A';
+            const opponents = (inT1 ? m.team2 : m.team1).map(p => p.nickname || p.name.split(' ')[0]).join(' & ');
 
             return (
-              <div key={idx} className="relative group">
+              <div key={idx} className="relative">
                 <button
                   onClick={() => setActivePerfIndex(isActive ? null : idx)}
-                  className={`w-full h-full rounded-lg transition-all transform active:scale-95 ${won ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-red-500/20 border-red-500/50'} border ${isActive ? 'ring-2 ring-primary scale-110 z-10' : 'opacity-80'}`}
+                  className={`w-full h-full rounded-lg transition-all transform active:scale-95 flex flex-col items-center justify-center border-2 ${won ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-red-500/10 border-red-500/40'} ${isActive ? 'ring-2 ring-primary scale-110 z-10' : 'opacity-80'}`}
                 >
-                  <span className={`text-[10px] font-black ${won ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <span className={`text-[11px] font-black ${won ? 'text-emerald-400' : 'text-red-400'}`}>
                     {won ? 'V' : 'D'}
                   </span>
+                  <span className="text-[7px] font-black text-gray-600">R{m.round}</span>
                 </button>
                 
                 {isActive && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50 animate-fade-in-up">
-                    <div className="bg-primary text-background-dark p-2 rounded-xl shadow-2xl whitespace-nowrap border border-white/10">
-                      <p className="text-[8px] font-black uppercase tracking-widest opacity-70 mb-0.5">{new Date(m.date).toLocaleDateString('pt-PT')}</p>
-                      <p className="text-xs font-black">{m.score1} — {m.score2}</p>
+                    <div className="bg-primary text-background-dark p-3 rounded-2xl shadow-2xl whitespace-nowrap border border-white/20 min-w-[140px]">
+                      <div className="flex justify-between items-center mb-1">
+                          <span className="text-[8px] font-black uppercase tracking-widest opacity-70">{new Date(m.date).toLocaleDateString('pt-PT')}</span>
+                          <span className="text-[8px] font-black bg-background-dark/20 px-1.5 py-0.5 rounded-full">RONDA {m.round}</span>
+                      </div>
+                      <p className="text-sm font-black text-center my-1">{m.score1} — {m.score2}</p>
+                      <div className="space-y-0.5 mt-2 border-t border-background-dark/10 pt-1">
+                          <p className="text-[7px] font-bold uppercase truncate">Com: {partner}</p>
+                          <p className="text-[7px] font-bold uppercase truncate opacity-70">Vs: {opponents}</p>
+                      </div>
                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-primary"></div>
                     </div>
                   </div>
@@ -239,7 +260,10 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
             );
           })}
         </div>
-        <p className="text-[8px] text-gray-500 font-bold text-center uppercase tracking-[0.2em]">Clica num bloco para ver o resultado</p>
+        <div className="flex justify-between px-1 text-[8px] font-black text-gray-600 uppercase tracking-widest">
+            <span>Mais Antigo</span>
+            <span>Mais Recente</span>
+        </div>
       </div>
     );
   };
@@ -254,7 +278,9 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
     const width = 340;
     const height = 180;
-    const paddingX = 20;
+    const paddingX = 30;
+    const paddingY = 20;
+    
     const pts = rankingHistory.map(h => h.points);
     const maxPts = Math.max(...pts) + 50;
     const minPts = Math.min(...pts) - 50;
@@ -262,7 +288,7 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
     const points = rankingHistory.map((h, i) => ({
         x: paddingX + (i * ((width - (paddingX * 2)) / (rankingHistory.length - 1))),
-        y: height - ((h.points - minPts) * (height / range)),
+        y: (height - paddingY) - ((h.points - minPts) * ((height - paddingY * 2) / range)),
         data: h
     }));
 
@@ -270,18 +296,23 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
     return (
         <div className="bg-card-dark p-6 rounded-3xl border border-white/5 shadow-xl relative overflow-hidden">
-            <div className="flex justify-between items-center mb-10">
+            <div className="flex justify-between items-center mb-8">
                 <div>
                     <p className="text-[10px] font-black text-primary uppercase tracking-widest">Evolução do Ranking</p>
                     <h3 className="text-sm font-black text-white uppercase">{player.level} — {player.rankingPoints} pts</h3>
                 </div>
                 <div className="text-right">
-                    <span className="material-symbols-outlined text-primary/30">trending_up</span>
+                    <span className="material-symbols-outlined text-primary/30 animate-pulse">trending_up</span>
                 </div>
             </div>
             
             <div className="relative h-[220px]">
                 <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height + 40}`} className="overflow-visible">
+                    {/* Linhas de grelha horizontais */}
+                    <line x1={paddingX} y1={paddingY} x2={width-paddingX} y2={paddingY} stroke="white" strokeOpacity="0.05" strokeDasharray="4" />
+                    <line x1={paddingX} y1={height/2} x2={width-paddingX} y2={height/2} stroke="white" strokeOpacity="0.05" strokeDasharray="4" />
+                    <line x1={paddingX} y1={height-paddingY} x2={width-paddingX} y2={height-paddingY} stroke="white" strokeOpacity="0.05" strokeDasharray="4" />
+
                     {/* Linha do Gráfico */}
                     <path d={d} fill="none" stroke="#607AFB" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
                     
@@ -298,8 +329,8 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                               onClick={() => setActiveRankIndex(isSelected ? null : i)}
                            />
                            {isSelected && (
-                             <foreignObject x={p.x - 40} y={p.y - 65} width="80" height="60" className="overflow-visible pointer-events-none">
-                                <div className="bg-white text-background-dark p-2 rounded-xl shadow-2xl flex flex-col items-center animate-fade-in-up">
+                             <foreignObject x={p.x - 45} y={p.y - 70} width="90" height="60" className="overflow-visible pointer-events-none">
+                                <div className="bg-white text-background-dark p-2 rounded-2xl shadow-2xl flex flex-col items-center animate-fade-in-up border border-primary/20">
                                    <span className="text-[8px] font-black uppercase tracking-tighter opacity-70 leading-none mb-1">{p.data.date}</span>
                                    <span className="text-xs font-black">{p.data.points} pts</span>
                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
@@ -310,12 +341,19 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                       );
                     })}
 
-                    {/* Labels de Datas Base */}
-                    <text x={paddingX} y={height + 25} textAnchor="start" fontSize="8" fontWeight="bold" fill="#666" className="uppercase">{rankingHistory[0].date}</text>
-                    <text x={width - paddingX} y={height + 25} textAnchor="end" fontSize="8" fontWeight="bold" fill="#666" className="uppercase">{rankingHistory[rankingHistory.length - 1].date}</text>
+                    {/* Labels de Datas no Eixo X */}
+                    {points.length > 0 && (
+                      <>
+                        <text x={points[0].x} y={height + 25} textAnchor="start" fontSize="8" fontWeight="900" fill="#4b5563" className="uppercase tracking-tighter">{points[0].data.date}</text>
+                        {points.length > 2 && (
+                          <text x={points[Math.floor(points.length/2)].x} y={height + 25} textAnchor="middle" fontSize="8" fontWeight="900" fill="#4b5563" className="uppercase tracking-tighter opacity-50">{points[Math.floor(points.length/2)].data.date}</text>
+                        )}
+                        <text x={points[points.length-1].x} y={height + 25} textAnchor="end" fontSize="8" fontWeight="900" fill="#4b5563" className="uppercase tracking-tighter">{points[points.length-1].data.date}</text>
+                      </>
+                    )}
                 </svg>
             </div>
-            <p className="text-[8px] text-gray-500 font-bold text-center uppercase tracking-widest mt-2">Toque num ponto para ver detalhes</p>
+            <p className="text-[8px] text-gray-500 font-bold text-center uppercase tracking-widest mt-2 opacity-50">Toca num ponto para ver detalhes da data</p>
         </div>
     );
   };
@@ -365,37 +403,36 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
           {activeTab === 'overview' && (
               <div className="space-y-4 animate-fade-in">
                   <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center">
+                      <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
                           <span className="text-xl font-black text-white">{stats.totalMatches}</span>
                           <span className="text-[8px] font-bold text-gray-500 uppercase">Jogos</span>
                       </div>
-                      <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center">
+                      <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
                           <span className="text-xl font-black text-primary">{stats.totalWins}</span>
                           <span className="text-[8px] font-bold text-gray-500 uppercase">Vitórias</span>
                       </div>
-                      <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center">
+                      <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
                           <span className="text-xl font-black text-emerald-400">{stats.winRate}%</span>
                           <span className="text-[8px] font-bold text-gray-500 uppercase">WR</span>
                       </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center shadow-sm">
                         <span className="material-symbols-outlined text-primary text-xl mb-1">local_fire_department</span>
                         <span className="text-xl font-black text-white">{stats.maxWinStreak}</span>
-                        <span className="text-[8px] text-gray-500 uppercase font-bold">Streak</span>
+                        <span className="text-[8px] text-gray-500 uppercase font-bold">Streak Max</span>
                     </div>
-                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center shadow-sm">
                         <span className="material-symbols-outlined text-yellow-500 text-xl mb-1">emoji_events</span>
                         <span className="text-xl font-black text-white">{stats.myWonTournaments.length}</span>
                         <span className="text-[8px] text-gray-500 uppercase font-bold">Títulos</span>
                     </div>
-                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center">
+                    <div className="bg-card-dark border border-white/5 p-4 rounded-2xl flex flex-col items-center shadow-sm">
                         <span className="material-symbols-outlined text-blue-400 text-xl mb-1">event_available</span>
                         <span className="text-xl font-black text-white">{stats.myTournaments.length}</span>
-                        <span className="text-[8px] text-gray-500 uppercase font-bold">Assiduidade</span>
+                        <span className="text-[8px] text-gray-500 uppercase font-bold">Presença</span>
                     </div>
                   </div>
-                  {/* Novo Gráfico de Performance */}
                   {renderPerformanceChart()}
               </div>
           )}
@@ -466,11 +503,11 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
 
           {activeTab === 'activity' && (
               <div className="space-y-4 animate-fade-in">
-                  <button onClick={() => setDrillDown({ title: 'Jogos Realizados', type: 'matches', items: stats.myMatches })} className="w-full bg-card-dark p-5 rounded-2xl border border-white/5 flex justify-between items-center group">
+                  <button onClick={() => setDrillDown({ title: 'Jogos Realizados', type: 'matches', items: stats.myMatches })} className="w-full bg-card-dark p-5 rounded-2xl border border-white/5 flex justify-between items-center group active:scale-95 transition-all">
                       <div><p className="text-sm font-black text-white">Todos os Jogos</p><p className="text-[10px] text-gray-500 uppercase">{stats.myMatches.length} Entradas</p></div>
                       <span className="material-symbols-outlined text-primary">chevron_right</span>
                   </button>
-                  <button onClick={() => setDrillDown({ title: 'Torneios Disputados', type: 'tournaments', items: stats.myTournaments })} className="w-full bg-card-dark p-5 rounded-2xl border border-white/5 flex justify-between items-center group">
+                  <button onClick={() => setDrillDown({ title: 'Torneios Disputados', type: 'tournaments', items: stats.myTournaments })} className="w-full bg-card-dark p-5 rounded-2xl border border-white/5 flex justify-between items-center group active:scale-95 transition-all">
                       <div><p className="text-sm font-black text-white">Torneios</p><p className="text-[10px] text-gray-500 uppercase">{stats.myTournaments.length} Participações</p></div>
                       <span className="material-symbols-outlined text-primary">chevron_right</span>
                   </button>
