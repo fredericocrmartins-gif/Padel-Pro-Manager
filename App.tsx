@@ -244,7 +244,7 @@ const App: React.FC = () => {
         });
     });
     return rankings;
-  }, [players, tournamentHistory]);
+  }, [players, tournamentHistory, selectedSeason]);
 
   const playersWithDynamicRanking = useMemo(() => {
     return players.map(p => {
