@@ -11,6 +11,9 @@ interface ProfileProps {
   onUpdatePlayer?: (player: Player) => void;
   rankingHistory?: { date: string, points: number, level: string }[];
   onViewTournament?: (tournament: Tournament) => void;
+  selectedSeason?: string;
+  availableSeasons?: string[];
+  onSelectSeason?: (season: string) => void;
 }
 
 type TabType = 'overview' | 'ranking' | 'relations' | 'activity';
@@ -61,7 +64,7 @@ export const renderGlobalAvatar = (p: { id: string, name: string, lastName?: str
   );
 };
 
-export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, history, setScreen, onUpdatePlayer, rankingHistory = [], onViewTournament }) => {
+export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, history, setScreen, onUpdatePlayer, rankingHistory = [], onViewTournament, selectedSeason, availableSeasons, onSelectSeason }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [drillDown, setDrillDown] = useState<{ title: string; type: 'matches' | 'tournaments'; items: any[] } | null>(null);
@@ -355,7 +358,20 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         <button onClick={() => setIsEditing(true)} className="absolute top-8 right-6 size-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 border border-white/10">
           <span className="material-symbols-outlined text-[20px]">edit</span>
         </button>
-        <div className="relative mb-4">
+        {selectedSeason && availableSeasons && onSelectSeason && (
+          <div className="absolute top-8 left-4 z-30">
+            <select 
+                value={selectedSeason} 
+                onChange={(e) => onSelectSeason(e.target.value)}
+                className="bg-card-dark/80 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-primary rounded-xl pl-3 pr-8 py-2 appearance-none outline-none focus:border-primary/50 shadow-lg uppercase tracking-wider"
+            >
+                <option value="Global">Global</option>
+                {availableSeasons.map(s => <option key={s} value={s}>Época {s}</option>)}
+            </select>
+            <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[14px] text-gray-500 pointer-events-none">expand_more</span>
+          </div>
+        )}
+        <div className="relative mb-4 mt-8">
           <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-110"></div>
           {renderGlobalAvatar(player, 'size-24')}
           <div className="absolute -bottom-1 -right-1 bg-primary text-background-dark text-[10px] font-black px-2 py-0.5 rounded-md border-2 border-background-dark shadow-lg">
