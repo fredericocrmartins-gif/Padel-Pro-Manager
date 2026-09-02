@@ -1,5 +1,5 @@
 
-// Version Note: Added cross-season profile comparison stats.
+// Version Note: Adjusted GlobalStats table widths for mobile view.
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Screen, Match, Player, Tournament, Location, CloudConfig } from './types';
 import { getSeason, getAllSeasons, calculateRankings } from './utils';
