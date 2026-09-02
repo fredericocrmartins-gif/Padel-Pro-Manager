@@ -10,6 +10,9 @@ interface PlayerListProps {
   onAddPlayer?: (player: Player) => void;
   onUpdatePlayer?: (player: Player) => void;
   onDeletePlayer?: (id: string) => void;
+  selectedSeason: string;
+  availableSeasons: string[];
+  onSelectSeason: (season: string) => void;
 }
 
 const PRESET_COLORS = [
@@ -19,7 +22,7 @@ const PRESET_COLORS = [
   'bg-pink-600'
 ];
 
-export const PlayerListScreen: React.FC<PlayerListProps> = ({ setScreen, players = [], onPlayerClick, onAddPlayer, onUpdatePlayer, onDeletePlayer }) => {
+export const PlayerListScreen: React.FC<PlayerListProps> = ({ setScreen, players = [], onPlayerClick, onAddPlayer, onUpdatePlayer, onDeletePlayer, selectedSeason, availableSeasons, onSelectSeason }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
@@ -70,7 +73,20 @@ export const PlayerListScreen: React.FC<PlayerListProps> = ({ setScreen, players
 
   return (
     <div className="flex flex-col gap-3 px-4 pb-24 animate-fade-in">
-      <div className="py-2"><h2 className="text-3xl font-bold leading-tight">Total de {players.length} <br/> <span className="text-primary">Jogadores</span></h2></div>
+      <div className="py-2 flex items-center justify-between">
+          <h2 className="text-3xl font-bold leading-tight">Total de {players.length} <br/> <span className="text-primary">Jogadores</span></h2>
+          <div className="relative z-30">
+            <select 
+                value={selectedSeason} 
+                onChange={(e) => onSelectSeason(e.target.value)}
+                className="bg-card-dark/80 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-primary rounded-xl pl-3 pr-8 py-2 appearance-none outline-none focus:border-primary/50 shadow-lg uppercase tracking-wider"
+            >
+                <option value="Global">Global</option>
+                {availableSeasons.map(s => <option key={s} value={s}>Época {s}</option>)}
+            </select>
+            <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[14px] text-gray-500 pointer-events-none">expand_more</span>
+          </div>
+      </div>
       
       {!isAdding && (
           <div className="relative mb-4">

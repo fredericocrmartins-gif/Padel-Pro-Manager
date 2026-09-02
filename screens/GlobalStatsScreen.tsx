@@ -9,6 +9,9 @@ interface GlobalStatsProps {
   locations?: Location[];
   onViewTournament?: (tournament: Tournament) => void;
   onViewPlayer?: (id: string) => void;
+  selectedSeason: string;
+  availableSeasons: string[];
+  onSelectSeason: (season: string) => void;
 }
 
 interface PlayerStats extends Player {
@@ -26,7 +29,7 @@ interface PlayerStats extends Player {
 
 type SortKey = keyof Pick<PlayerStats, 'gamesPlayed' | 'wins' | 'losses' | 'balance' | 'pointsScored' | 'pointsConceded' | 'tournamentsWon'>;
 
-export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], players = [], locations = [], onViewTournament, onViewPlayer }) => {
+export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], players = [], locations = [], onViewTournament, onViewPlayer, selectedSeason, availableSeasons, onSelectSeason }) => {
   const [timeRange, setTimeRange] = useState<'all' | 'month' | 'year'>('all');
   const [drillDown, setDrillDown] = useState<{ title: string; type: string; data: any[] } | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ 
@@ -245,14 +248,29 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
 
   return (
     <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in bg-background-dark min-h-screen">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-white">Central <span className="text-primary">Global</span></h1>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Dashboard de Performance</p>
+      <header className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-white">Central <span className="text-primary">Global</span></h1>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Dashboard de Performance</p>
+          </div>
+          <div className="relative z-30">
+            <select 
+                value={selectedSeason} 
+                onChange={(e) => onSelectSeason(e.target.value)}
+                className="bg-card-dark/80 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-primary rounded-xl pl-3 pr-8 py-2 appearance-none outline-none focus:border-primary/50 shadow-lg uppercase tracking-wider"
+            >
+                <option value="Global">Global</option>
+                {availableSeasons.map(s => <option key={s} value={s}>Época {s}</option>)}
+            </select>
+            <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[14px] text-gray-500 pointer-events-none">expand_more</span>
+          </div>
         </div>
-        <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
+        
+        {/* Filtro Sub-Temporal */}
+        <div className="flex bg-white/5 rounded-xl p-1 border border-white/5 self-start">
           {['all', 'month', 'year'].map(r => (
-            <button key={r} onClick={() => setTimeRange(r as any)} className={`px-3 py-1.5 text-[8px] font-black rounded-lg transition-all ${timeRange === r ? 'bg-primary text-background-dark' : 'text-gray-500'}`}>{r === 'all' ? 'TOTAL' : r === 'month' ? 'MÊS' : 'ANO'}</button>
+            <button key={r} onClick={() => setTimeRange(r as any)} className={`px-3 py-1.5 text-[8px] font-black rounded-lg transition-all uppercase tracking-widest ${timeRange === r ? 'bg-primary text-background-dark' : 'text-gray-500'}`}>{r === 'all' ? 'TOTAL DA ÉPOCA' : r === 'month' ? 'ESTE MÊS' : 'ESTE ANO'}</button>
           ))}
         </div>
       </header>

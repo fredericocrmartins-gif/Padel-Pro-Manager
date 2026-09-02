@@ -1,6 +1,8 @@
 
+// Version Note: Added Season functionality to filter tournament history.
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Screen, Match, Player, Tournament, Location, CloudConfig } from './types';
+import { getSeason, getAllSeasons } from './utils';
 import { Navigation } from './components/Navigation';
 import { PullToRefresh } from './components/PullToRefresh';
 import { HomeScreen } from './screens/HomeScreen';
@@ -38,6 +40,9 @@ const App: React.FC = () => {
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedHistoryTournament, setSelectedHistoryTournament] = useState<Tournament | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<string>(() => getSeason(new Date().toISOString()));
+
+  const availableSeasons = useMemo(() => getAllSeasons(tournamentHistory), [tournamentHistory]);
 
   const isTournamentDifferent = (t1: Tournament | null, t2: Tournament | null) => {
       if (!t1 && !t2) return false;
@@ -66,11 +71,12 @@ const App: React.FC = () => {
     }
     
     try {
+      const baseUrl = config.url.replace(/\/$/, '');
       const headers = { 'apikey': config.key, 'Authorization': `Bearer ${config.key}`, 'Content-Type': 'application/json' };
       const responses = await Promise.all([
-        fetch(`${config.url}/rest/v1/players?select=data`, { headers, cache: 'no-store' }),
-        fetch(`${config.url}/rest/v1/locations?select=data`, { headers, cache: 'no-store' }),
-        fetch(`${config.url}/rest/v1/tournaments?select=data`, { headers, cache: 'no-store' })
+        fetch(`${baseUrl}/rest/v1/players?select=data`, { headers, cache: 'no-store' }),
+        fetch(`${baseUrl}/rest/v1/locations?select=data`, { headers, cache: 'no-store' }),
+        fetch(`${baseUrl}/rest/v1/tournaments?select=data`, { headers, cache: 'no-store' })
       ]);
 
       for (const res of responses) {
@@ -110,7 +116,8 @@ const App: React.FC = () => {
   const pushToCloud = async (table: 'players' | 'locations' | 'tournaments', id: string, data: any) => {
     if (!cloudConfig.enabled) return;
     try {
-      const res = await fetch(`${cloudConfig.url}/rest/v1/${table}`, {
+      const baseUrl = cloudConfig.url.replace(/\/$/, '');
+      const res = await fetch(`${baseUrl}/rest/v1/${table}`, {
         method: 'POST',
         headers: { 
             'apikey': cloudConfig.key, 
@@ -130,7 +137,8 @@ const App: React.FC = () => {
   const deleteFromCloud = async (table: 'players' | 'locations' | 'tournaments', id: string) => {
     if (!cloudConfig.enabled) return;
     try {
-      await fetch(`${cloudConfig.url}/rest/v1/${table}?id=eq.${id}`, {
+      const baseUrl = cloudConfig.url.replace(/\/$/, '');
+      await fetch(`${baseUrl}/rest/v1/${table}?id=eq.${id}`, {
         method: 'DELETE',
         headers: { 
           'apikey': cloudConfig.key, 
@@ -200,8 +208,9 @@ const App: React.FC = () => {
   const playerRankings = useMemo(() => {
     const rankings = new Map<string, { current: number, history: { date: string, points: number, level: string }[] }>();
     players.forEach(p => rankings.set(p.id, { current: 1000, history: [{ date: 'Início', points: 1000, level: 'Nível 1' }] }));
-    const finishedTournaments = tournamentHistory.filter(t => t.status === 'finished');
-    const sortedHistory = [...finishedTournaments].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    const filteredHistory = tournamentHistory.filter(t => t.status === 'finished' && (selectedSeason === 'Global' || getSeason(t.date) === selectedSeason));
+    const sortedHistory = [...filteredHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     sortedHistory.forEach(t => {
         if (!t.matches) return;
@@ -363,16 +372,16 @@ const App: React.FC = () => {
     if (isLoading) return <div className="h-screen flex flex-col items-center justify-center text-primary bg-background-dark"><span className="material-symbols-outlined animate-spin text-5xl mb-4">sync</span><p className="font-black uppercase tracking-widest text-xs">A carregar...</p></div>;
     
     switch (currentScreen) {
-      case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} onCancelTournament={handleCancelTournament} history={tournamentHistory.filter(t => t.status === 'finished')} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} />;
+      case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} onCancelTournament={handleCancelTournament} history={tournamentHistory.filter(t => t.status === 'finished')} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} selectedSeason={selectedSeason} availableSeasons={availableSeasons} onSelectSeason={setSelectedSeason} />;
       case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory.filter(t => t.status === 'finished')} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} />;
       case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={updateMatchScore} onNextRound={handleNextRound} currentRound={currentRound} />;
       case Screen.TOURNAMENT_SUMMARY: return <TournamentSummaryScreen setScreen={setScreen} matches={matches} updateMatchScore={updateMatchScore} onFinish={handleFinishTournament} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={tournamentHistory[0]?.matches || []} />;
-      case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory.filter(t => t.status === 'finished')} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} />;
+      case Screen.GLOBAL_STATS: return <GlobalStatsScreen history={tournamentHistory.filter(t => t.status === 'finished' && (selectedSeason === 'Global' || getSeason(t.date) === selectedSeason))} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onViewPlayer={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} locations={locations} selectedSeason={selectedSeason} availableSeasons={availableSeasons} onSelectSeason={setSelectedSeason} />;
       case Screen.TOURNAMENT_HISTORY: return <TournamentHistoryScreen history={tournamentHistory} locations={locations} players={playersWithDynamicRanking} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} onDeleteTournament={handleDeleteTournament} />;
       case Screen.HISTORY_DETAIL: return selectedHistoryTournament ? <HistoryDetailScreen setScreen={setScreen} tournament={selectedHistoryTournament} locations={locations} players={playersWithDynamicRanking} onDeleteTournament={handleDeleteTournament} /> : null;
       case Screen.TEAM_SETUP: return <TeamSetupScreen setScreen={setScreen} players={playersWithDynamicRanking.filter(p => activeTournament?.confirmedPlayerIds.includes(p.id))} onStartTournament={handleStartTournament} />;
-      case Screen.PLAYERS: return <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer} onDeletePlayer={handleDeletePlayer} />;
+      case Screen.PLAYERS: return <PlayerListScreen setScreen={setScreen} players={playersWithDynamicRanking} onPlayerClick={(id) => { setSelectedPlayerId(id); setScreen(Screen.PROFILE); }} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer} onDeletePlayer={handleDeletePlayer} selectedSeason={selectedSeason} availableSeasons={availableSeasons} onSelectSeason={setSelectedSeason} />;
       case Screen.LOCATIONS: return <LocationManagerScreen setScreen={setScreen} locations={locations} onAddLocation={handleAddLocation} onUpdateLocation={handleUpdateLocation} onDeleteLocation={handleDeleteLocation} history={tournamentHistory} />;
       case Screen.SETTINGS: return <SettingsScreen setScreen={setScreen} players={players} locations={locations} history={tournamentHistory} cloudConfig={cloudConfig} onUpdateCloudConfig={setCloudConfig} onImportData={(d) => { setPlayers(d.players); setLocations(d.locations); setTournamentHistory(d.history); }} onResetData={() => { localStorage.clear(); window.location.reload(); }} />;
       default: return null;
@@ -382,16 +391,23 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-background-dark text-white font-sans selection:bg-primary selection:text-background-dark">
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl border-x border-white/5 bg-background-dark">
-        <button 
-          onClick={() => refreshAllData()}
-          className={`absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 backdrop-blur-md px-3 py-1 rounded-full border cursor-pointer hover:bg-black/60 active:scale-95 transition-all ${syncStatus === 'error' ? 'bg-red-500/20 border-red-500/50' : 'bg-black/40 border-white/5'}`}
-        >
-          <div className={`size-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : syncStatus === 'error' ? 'bg-red-500' : 'bg-orange-500'}`}></div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">
-             {syncStatus === 'online' ? 'Cloud Sync' : syncStatus === 'error' ? 'Erro Sync' : 'Offline'}
-          </span>
-          <span className="material-symbols-outlined text-[10px] text-gray-500">refresh</span>
-        </button>
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-1">
+          <button 
+            onClick={() => {
+              if (syncStatus === 'error' && lastErrorMessage) {
+                alert(`Erro de Sincronização:\n${lastErrorMessage}`);
+              }
+              refreshAllData();
+            }}
+            className={`flex items-center gap-2 backdrop-blur-md px-3 py-1 rounded-full border cursor-pointer hover:bg-black/60 active:scale-95 transition-all ${syncStatus === 'error' ? 'bg-red-500/20 border-red-500/50' : 'bg-black/40 border-white/5'}`}
+          >
+            <div className={`size-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : syncStatus === 'error' ? 'bg-red-500' : 'bg-orange-500'}`}></div>
+            <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">
+               {syncStatus === 'online' ? 'Cloud Sync' : syncStatus === 'error' ? 'Erro Sync' : 'Offline'}
+            </span>
+            <span className="material-symbols-outlined text-[10px] text-gray-500">refresh</span>
+          </button>
+        </div>
         <PullToRefresh onRefresh={refreshAllData}>
             {renderScreen()}
         </PullToRefresh>

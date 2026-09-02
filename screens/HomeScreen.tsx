@@ -14,6 +14,9 @@ interface HomeScreenProps {
   onCancelTournament: () => void;
   history: Tournament[];
   onViewTournament: (t: Tournament) => void;
+  selectedSeason: string;
+  availableSeasons: string[];
+  onSelectSeason: (season: string) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
@@ -26,7 +29,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     onUpdateTournament,
     onCancelTournament,
     history,
-    onViewTournament
+    onViewTournament,
+    selectedSeason,
+    availableSeasons,
+    onSelectSeason
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -68,11 +74,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return () => clearInterval(timer);
   }, [activeTournament]);
   
-  const totalGames = history.reduce((acc, t) => acc + (t.matches?.length || 0), 0);
-  const totalHours = history.reduce((acc, t) => acc + t.duration, 0);
-  
+  const totalGames = history.filter(t => selectedSeason === 'Global' || (t.date && t.date >= `${selectedSeason.substring(0,4)}-09-01` && t.date <= `${selectedSeason.substring(5,9)}-08-31`) || selectedSeason === 'Global').reduce((acc, t) => acc + (t.matches?.length || 0), 0);
+  const totalHours = history.filter(t => selectedSeason === 'Global' || (t.date && t.date >= `${selectedSeason.substring(0,4)}-09-01` && t.date <= `${selectedSeason.substring(5,9)}-08-31`) || selectedSeason === 'Global').reduce((acc, t) => acc + t.duration, 0);
+  // Note: the history passed from App is ALREADY filtered in GlobalStats, but for Home it passes all finished. Let's filter it locally or rely on App.
+  // Actually, wait, App passes `tournamentHistory.filter(t => t.status === 'finished')` to Home.
+  // I should filter it here by selectedSeason for the stats and 'Últimos Torneios'
+  const filteredHistory = history.filter(t => {
+      if (selectedSeason === 'Global') return true;
+      const d = new Date(t.date);
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const season = month >= 8 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+      return season === selectedSeason;
+  });
+
+  const displayGames = filteredHistory.reduce((acc, t) => acc + (t.matches?.length || 0), 0);
+  const displayHours = filteredHistory.reduce((acc, t) => acc + t.duration, 0);
+
   const locationUsage: Record<string, number> = {};
-  history.forEach(t => {
+  filteredHistory.forEach(t => {
     locationUsage[t.locationId] = (locationUsage[t.locationId] || 0) + 1;
   });
   const favLocationId = Object.entries(locationUsage).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -169,12 +189,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <section className="grid grid-cols-3 gap-3">
       <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
         <span className="material-symbols-outlined text-primary mb-1">sports_tennis</span>
-        <span className="text-xl font-bold text-white">{totalGames}</span>
+        <span className="text-xl font-bold text-white">{displayGames}</span>
         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Jogos</span>
       </div>
       <div className="bg-card-dark p-4 rounded-2xl border border-white/5 flex flex-col items-center shadow-sm">
         <span className="material-symbols-outlined text-purple-400 mb-1">schedule</span>
-        <span className="text-xl font-bold text-white">{totalHours}h</span>
+        <span className="text-xl font-bold text-white">{displayHours}h</span>
         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Tempo</span>
       </div>
       <button 
@@ -186,6 +206,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Clube</span>
       </button>
     </section>
+  );
+
+  const SeasonSelector = (
+    <div className="relative z-30">
+        <select 
+            value={selectedSeason} 
+            onChange={(e) => onSelectSeason(e.target.value)}
+            className="bg-card-dark/80 backdrop-blur-sm border border-white/10 text-xs font-bold text-primary rounded-xl pl-3 pr-8 py-2 appearance-none outline-none focus:border-primary/50 shadow-lg"
+        >
+            <option value="Global">Global</option>
+            {availableSeasons.map(s => <option key={s} value={s}>Época {s}</option>)}
+        </select>
+        <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[14px] text-gray-500 pointer-events-none">expand_more</span>
+    </div>
   );
 
   if (isCreating) {
@@ -388,6 +422,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <p className="text-slate-400 text-xs mt-1">Pronto para o próximo jogo?</p>
                 </div>
             </div>
+            {SeasonSelector}
         </header>
 
         {StatsSection}
@@ -415,7 +450,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button onClick={() => setScreen(Screen.TOURNAMENT_HISTORY)} className="text-[10px] font-black text-primary uppercase tracking-widest">Ver Tudo</button>
             </div>
             <div className="flex flex-col gap-3">
-                {history.slice(0, 3).map((t) => {
+                {filteredHistory.slice(0, 3).map((t) => {
                     const winners = getWinnersOfTournament(t);
                     return (
                         <button key={t.id} onClick={() => onViewTournament(t)} className="flex items-center justify-between p-4 bg-card-dark rounded-2xl border border-white/5 active:bg-white/5 transition-all group">
