@@ -1,8 +1,8 @@
 
-// Version Note: Added Sobe e Desce format and dynamic team setup logic.
+// Version Note: Added cross-season profile comparison stats.
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Screen, Match, Player, Tournament, Location, CloudConfig } from './types';
-import { getSeason, getAllSeasons } from './utils';
+import { getSeason, getAllSeasons, calculateRankings } from './utils';
 import { Navigation } from './components/Navigation';
 import { PullToRefresh } from './components/PullToRefresh';
 import { HomeScreen } from './screens/HomeScreen';
@@ -206,44 +206,7 @@ const App: React.FC = () => {
   }, [players, locations, tournamentHistory, activeTournament, cloudConfig, isLoading]);
 
   const playerRankings = useMemo(() => {
-    const rankings = new Map<string, { current: number, history: { date: string, points: number, level: string }[] }>();
-    players.forEach(p => rankings.set(p.id, { current: 1000, history: [{ date: 'Início', points: 1000, level: 'Nível 1' }] }));
-    
-    const filteredHistory = tournamentHistory.filter(t => t.status === 'finished' && (selectedSeason === 'Global' || getSeason(t.date) === selectedSeason));
-    const sortedHistory = [...filteredHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    sortedHistory.forEach(t => {
-        if (!t.matches) return;
-        const teamResults = new Map<string, { wins: number, diff: number, pids: string[] }>();
-        t.matches.forEach(m => {
-            const k1 = m.team1.map(p => p.id).sort().join('-');
-            const k2 = m.team2.map(p => p.id).sort().join('-');
-            if (!teamResults.has(k1)) teamResults.set(k1, { wins: 0, diff: 0, pids: m.team1.map(p=>p.id) });
-            if (!teamResults.has(k2)) teamResults.set(k2, { wins: 0, diff: 0, pids: m.team2.map(p=>p.id) });
-            const s1 = teamResults.get(k1)!, s2 = teamResults.get(k2)!;
-            s1.diff += (m.score1 - m.score2); s2.diff += (m.score2 - m.score1);
-            if (m.score1 > m.score2) s1.wins++; else if (m.score2 > m.score1) s2.wins++;
-        });
-        const standingsArr = Array.from(teamResults.values()).sort((a,b) => b.wins - a.wins || b.diff - a.diff);
-        const championsIds = standingsArr[0]?.pids || [];
-        t.matches.forEach(m => {
-            const updateP = (p: Player, won: boolean) => {
-                const d = rankings.get(p.id); if (d) { d.current += won ? 20 : -12; if (d.current < 800) d.current = 800; }
-            };
-            m.team1.forEach(p => updateP(p, m.score1 > m.score2)); m.team2.forEach(p => updateP(p, m.score2 > m.score1));
-        });
-        const affected = new Set<string>();
-        t.matches.forEach(m => [...m.team1, ...m.team2].forEach(p => affected.add(p.id)));
-        affected.forEach(pid => {
-            const d = rankings.get(pid);
-            if (d) {
-                if (championsIds.includes(pid)) d.current += 50;
-                const getL = (pts: number) => pts >= 1600 ? 'Pro' : pts >= 1400 ? 'Nível 3' : pts >= 1200 ? 'Nível 2' : 'Nível 1';
-                d.history.push({ date: new Date(t.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }), points: d.current, level: getL(d.current) });
-            }
-        });
-    });
-    return rankings;
+    return calculateRankings(players, tournamentHistory, selectedSeason);
   }, [players, tournamentHistory, selectedSeason]);
 
   const playersWithDynamicRanking = useMemo(() => {
@@ -400,7 +363,7 @@ const App: React.FC = () => {
     
     switch (currentScreen) {
       case Screen.HOME: return <HomeScreen setScreen={setScreen} activeTournament={activeTournament} players={playersWithDynamicRanking} locations={locations} onCreateTournament={handleCreateTournament} onAddPlayer={handleAddPlayer} onUpdateTournament={handleUpdateActiveTournament} onCancelTournament={handleCancelTournament} history={tournamentHistory.filter(t => t.status === 'finished')} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} selectedSeason={selectedSeason} availableSeasons={availableSeasons} onSelectSeason={setSelectedSeason} />;
-      case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory.filter(t => t.status === 'finished' && (selectedSeason === 'Global' || getSeason(t.date) === selectedSeason))} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} selectedSeason={selectedSeason} availableSeasons={availableSeasons} onSelectSeason={setSelectedSeason} />;
+      case Screen.PROFILE: return <ProfileScreen playerId={selectedPlayerId} players={playersWithDynamicRanking} history={tournamentHistory.filter(t => t.status === 'finished' && (selectedSeason === 'Global' || getSeason(t.date) === selectedSeason))} fullHistory={tournamentHistory.filter(t => t.status === 'finished')} currentMatches={matches} setScreen={setScreen} onUpdatePlayer={handleUpdatePlayer} rankingHistory={selectedPlayerId ? playerRankings.get(selectedPlayerId)?.history : []} onViewTournament={(t) => { setSelectedHistoryTournament(t); setScreen(Screen.HISTORY_DETAIL); }} selectedSeason={selectedSeason} availableSeasons={availableSeasons} onSelectSeason={setSelectedSeason} />;
       case Screen.LIVE_GAME: return <LiveGameScreen setScreen={setScreen} matches={matches.filter(m => m.round === currentRound)} updateMatchScore={updateMatchScore} onNextRound={handleNextRound} currentRound={currentRound} />;
       case Screen.TOURNAMENT_SUMMARY: return <TournamentSummaryScreen setScreen={setScreen} matches={matches} updateMatchScore={updateMatchScore} onFinish={handleFinishTournament} />;
       case Screen.TOURNAMENT_RESULTS: return <TournamentResultsScreen setScreen={setScreen} matches={tournamentHistory[0]?.matches || []} />;

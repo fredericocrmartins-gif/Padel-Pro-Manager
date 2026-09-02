@@ -1,11 +1,13 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Screen, Player, Tournament, Match } from '../types';
+import { calculateRankings, getPreviousSeason } from '../utils';
 
 interface ProfileProps {
   playerId: string | null;
   players: Player[];
   history: Tournament[];
+  fullHistory?: Tournament[];
   currentMatches: Match[];
   setScreen: (screen: Screen) => void;
   onUpdatePlayer?: (player: Player) => void;
@@ -64,7 +66,7 @@ export const renderGlobalAvatar = (p: { id: string, name: string, lastName?: str
   );
 };
 
-export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, history, setScreen, onUpdatePlayer, rankingHistory = [], onViewTournament, selectedSeason, availableSeasons, onSelectSeason }) => {
+export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, history, fullHistory = [], setScreen, onUpdatePlayer, rankingHistory = [], onViewTournament, selectedSeason, availableSeasons, onSelectSeason }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [drillDown, setDrillDown] = useState<{ title: string; type: 'matches' | 'tournaments'; items: any[] } | null>(null);
@@ -196,6 +198,40 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
         blackBeasts: rivalsList.filter(r => r.balance < 0).sort((a,b) => a.balance - b.balance).slice(0, 10)
     };
   }, [playerId, history]);
+
+  const comparisonStats = useMemo(() => {
+    if (!playerId || !selectedSeason || !fullHistory || fullHistory.length === 0) return null;
+    
+    const globalRankingsMap = calculateRankings(players, fullHistory, 'Global');
+    const globalPoints = globalRankingsMap.get(playerId)?.current || 1000;
+    
+    const globalArray = Array.from(globalRankingsMap.entries()).sort((a,b) => b[1].current - a[1].current);
+    const globalPosition = globalArray.findIndex(r => r[0] === playerId) + 1;
+
+    let prevSeasonPoints = null;
+    let prevSeasonPosition = null;
+    let prevSeasonName = null;
+    
+    if (selectedSeason !== 'Global') {
+        const prevSeason = getPreviousSeason(selectedSeason);
+        if (prevSeason && prevSeason !== selectedSeason) {
+            prevSeasonName = prevSeason;
+            const prevRankingsMap = calculateRankings(players, fullHistory, prevSeason);
+            prevSeasonPoints = prevRankingsMap.get(playerId)?.current || 1000;
+            const prevArray = Array.from(prevRankingsMap.entries()).sort((a,b) => b[1].current - a[1].current);
+            prevSeasonPosition = prevArray.findIndex(r => r[0] === playerId) + 1;
+        }
+    }
+
+    const currentPoints = player?.rankingPoints || 1000;
+    const currentRankingsMap = calculateRankings(players, fullHistory, selectedSeason);
+    const currentArray = Array.from(currentRankingsMap.entries()).sort((a,b) => b[1].current - a[1].current);
+    const currentPosition = currentArray.findIndex(r => r[0] === playerId) + 1;
+
+    return {
+        globalPoints, globalPosition, prevSeasonPoints, prevSeasonPosition, prevSeasonName, currentPosition, currentPoints
+    };
+  }, [playerId, selectedSeason, fullHistory, players, player]);
 
   if (!player || !stats) return null;
 
@@ -447,6 +483,28 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
           {activeTab === 'ranking' && (
               <div className="space-y-4 animate-fade-in">
                   {renderRankingChart()}
+                  
+                  {comparisonStats && (
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="bg-card-dark p-4 rounded-3xl border border-white/5 shadow-sm">
+                              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Global (Carreira)</p>
+                              <div className="flex items-end gap-2">
+                                  <span className="text-xl font-black text-white">{comparisonStats.globalPoints} <span className="text-xs text-gray-500 font-bold">pts</span></span>
+                                  <span className="text-xs font-bold text-primary mb-0.5">{comparisonStats.globalPosition}º lugar</span>
+                              </div>
+                          </div>
+                          {comparisonStats.prevSeasonPoints !== null && (
+                              <div className="bg-card-dark p-4 rounded-3xl border border-white/5 shadow-sm">
+                                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Época {comparisonStats.prevSeasonName}</p>
+                                  <div className="flex items-end gap-2">
+                                      <span className="text-xl font-black text-white">{comparisonStats.prevSeasonPoints} <span className="text-xs text-gray-500 font-bold">pts</span></span>
+                                      <span className="text-xs font-bold text-gray-400 mb-0.5">{comparisonStats.prevSeasonPosition}º lugar</span>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  )}
+
                   <div className="bg-primary/10 p-5 rounded-3xl border border-primary/20">
                       <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">Sistema de Pontuação</p>
                       <ul className="space-y-2">
