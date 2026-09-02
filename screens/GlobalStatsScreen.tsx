@@ -95,6 +95,11 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
       });
     });
 
+    const getLatestPlayer = (hp: Player) => {
+        if (!hp) return hp;
+        return players.find(p => p.id === hp.id) || hp;
+    };
+
     filteredHistory.forEach(t => {
       const locationName = locations.find(l => l.id === t.locationId)?.name || 'Local N/A';
       locStats.set(t.locationId, (locStats.get(t.locationId) || 0) + 1);
@@ -111,8 +116,8 @@ export const GlobalStatsScreen: React.FC<GlobalStatsProps> = ({ history = [], pl
           const k1 = m.team1.map(p => p.id).sort().join('-');
           const k2 = m.team2.map(p => p.id).sort().join('-');
           
-          if (!duoStats.has(k1)) duoStats.set(k1, { wins: 0, games: 0, p1: m.team1[0], p2: m.team1[1] });
-          if (!duoStats.has(k2)) duoStats.set(k2, { wins: 0, games: 0, p1: m.team2[0], p2: m.team2[1] });
+          if (!duoStats.has(k1)) duoStats.set(k1, { wins: 0, games: 0, p1: getLatestPlayer(m.team1[0]), p2: getLatestPlayer(m.team1[1]) });
+          if (!duoStats.has(k2)) duoStats.set(k2, { wins: 0, games: 0, p1: getLatestPlayer(m.team2[0]), p2: getLatestPlayer(m.team2[1]) });
           
           const ds1 = duoStats.get(k1)!; ds1.games++;
           const ds2 = duoStats.get(k2)!; ds2.games++;
