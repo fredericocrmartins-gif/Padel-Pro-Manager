@@ -49,10 +49,10 @@ export const LiveGameScreen: React.FC<LiveGameScreenProps> = ({
       <div className="flex flex-col gap-6">
       {matches.map((match) => (
         <article key={match.id} className="bg-card-dark rounded-3xl p-6 shadow-lg border border-white/5 relative overflow-hidden group">
-            <div className={`absolute top-0 left-0 w-1.5 h-full ${match.court === 1 ? 'bg-primary' : 'bg-purple-500'}`}></div>
+            <div className={`absolute top-0 left-0 w-1.5 h-full ${match.court === 1 ? 'bg-primary' : match.court === 2 ? 'bg-purple-500' : 'bg-emerald-500'}`}></div>
             <header className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                    <span className={`material-symbols-outlined ${match.court === 1 ? 'text-primary' : 'text-purple-500'}`}>stadium</span>
+                    <span className={`material-symbols-outlined ${match.court === 1 ? 'text-primary' : match.court === 2 ? 'text-purple-500' : 'text-emerald-500'}`}>stadium</span>
                     <h3 className="text-sm font-black text-white">CAMPO {match.court}</h3>
                 </div>
                 <span className="text-[10px] font-black bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full border border-green-500/20">LIVE</span>

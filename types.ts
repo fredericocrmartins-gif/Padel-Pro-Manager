@@ -65,4 +65,5 @@ export interface Tournament {
   status: 'scheduled' | 'live' | 'finished' | 'cancelled';
   rosterClosed?: boolean; // Novo campo para fechar a convocatória antes do sorteio
   matches?: Match[];
+  format?: 'classic_8' | 'sobe_desce_12';
 }

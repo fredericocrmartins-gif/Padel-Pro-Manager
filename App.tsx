@@ -1,5 +1,5 @@
 
-// Version Note: Added Season functionality to filter tournament history, including Profile Screen.
+// Version Note: Added Sobe e Desce format and dynamic team setup logic.
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Screen, Match, Player, Tournament, Location, CloudConfig } from './types';
 import { getSeason, getAllSeasons } from './utils';
@@ -261,32 +261,59 @@ const App: React.FC = () => {
       return;
     }
 
-    const r1 = matches.filter(m => m.round === 1);
-    const m1 = r1.find(m => m.court === 1);
-    const m2 = r1.find(m => m.court === 2);
+    let nextMatches: Match[] = [];
+    const timestamp = Date.now();
+    const dateStr = new Date().toISOString();
 
-    if (m1 && m2) {
-      const winner1 = m1.score1 > m1.score2 ? m1.team1 : m1.team2;
-      const loser1 = m1.score1 > m1.score2 ? m1.team2 : m1.team1;
-      const winner2 = m2.score1 > m2.score2 ? m2.team1 : m2.team2;
-      const loser2 = m2.score1 > m2.score2 ? m2.team2 : m2.team1;
+    if (activeTournament?.format === 'sobe_desce_12') {
+        const prevRound = matches.filter(m => m.round === currentRound);
+        const m1 = prevRound.find(m => m.court === 1);
+        const m2 = prevRound.find(m => m.court === 2);
+        const m3 = prevRound.find(m => m.court === 3);
 
-      let nextMatches: Match[] = [];
-      const timestamp = Date.now();
-      const dateStr = new Date().toISOString();
+        if (m1 && m2 && m3) {
+            const w1 = m1.score1 > m1.score2 ? m1.team1 : m1.team2;
+            const l1 = m1.score1 > m1.score2 ? m1.team2 : m1.team1;
+            
+            const w2 = m2.score1 > m2.score2 ? m2.team1 : m2.team2;
+            const l2 = m2.score1 > m2.score2 ? m2.team2 : m2.team1;
 
-      if (nextRoundNumber === 2) {
-        nextMatches = [
-          { id: `m-r2-c1-${timestamp}`, team1: winner1, team2: loser2, score1: 0, score2: 0, court: 1, status: 'live', round: 2, date: dateStr },
-          { id: `m-r2-c2-${timestamp}`, team1: winner2, team2: loser1, score1: 0, score2: 0, court: 2, status: 'live', round: 2, date: dateStr }
-        ];
-      } else if (nextRoundNumber === 3) {
-        nextMatches = [
-          { id: `m-r3-c1-${timestamp}`, team1: winner1, team2: winner2, score1: 0, score2: 0, court: 1, status: 'live', round: 3, date: dateStr },
-          { id: `m-r3-c2-${timestamp}`, team1: loser1, team2: loser2, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
-        ];
-      }
+            const w3 = m3.score1 > m3.score2 ? m3.team1 : m3.team2;
+            const l3 = m3.score1 > m3.score2 ? m3.team2 : m3.team1;
 
+            nextMatches = [
+                { id: `m-r${nextRoundNumber}-c1-${timestamp}`, team1: w1, team2: w2, score1: 0, score2: 0, court: 1, status: 'live', round: nextRoundNumber, date: dateStr },
+                { id: `m-r${nextRoundNumber}-c2-${timestamp}`, team1: l1, team2: w3, score1: 0, score2: 0, court: 2, status: 'live', round: nextRoundNumber, date: dateStr },
+                { id: `m-r${nextRoundNumber}-c3-${timestamp}`, team1: l2, team2: l3, score1: 0, score2: 0, court: 3, status: 'live', round: nextRoundNumber, date: dateStr }
+            ];
+        }
+    } else {
+        // Formato Clássico
+        const r1 = matches.filter(m => m.round === 1);
+        const m1 = r1.find(m => m.court === 1);
+        const m2 = r1.find(m => m.court === 2);
+
+        if (m1 && m2) {
+          const winner1 = m1.score1 > m1.score2 ? m1.team1 : m1.team2;
+          const loser1 = m1.score1 > m1.score2 ? m1.team2 : m1.team1;
+          const winner2 = m2.score1 > m2.score2 ? m2.team1 : m2.team2;
+          const loser2 = m2.score1 > m2.score2 ? m2.team2 : m2.team1;
+
+          if (nextRoundNumber === 2) {
+            nextMatches = [
+              { id: `m-r2-c1-${timestamp}`, team1: winner1, team2: loser2, score1: 0, score2: 0, court: 1, status: 'live', round: 2, date: dateStr },
+              { id: `m-r2-c2-${timestamp}`, team1: winner2, team2: loser1, score1: 0, score2: 0, court: 2, status: 'live', round: 2, date: dateStr }
+            ];
+          } else if (nextRoundNumber === 3) {
+            nextMatches = [
+              { id: `m-r3-c1-${timestamp}`, team1: winner1, team2: winner2, score1: 0, score2: 0, court: 1, status: 'live', round: 3, date: dateStr },
+              { id: `m-r3-c2-${timestamp}`, team1: loser1, team2: loser2, score1: 0, score2: 0, court: 2, status: 'live', round: 3, date: dateStr }
+            ];
+          }
+        }
+    }
+
+    if (nextMatches.length > 0) {
       const updatedMatches = [...matches, ...nextMatches];
       setMatches(updatedMatches);
       setCurrentRound(nextRoundNumber);

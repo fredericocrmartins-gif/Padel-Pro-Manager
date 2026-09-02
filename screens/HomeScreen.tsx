@@ -176,11 +176,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleCloseRoster = () => {
-    if (activeTournament?.confirmedPlayerIds.length !== 8) {
-        alert("São necessários exatamente 8 jogadores."); return;
+    const count = activeTournament?.confirmedPlayerIds.length || 0;
+    if (count !== 8 && count !== 12) {
+        alert("São necessários exatamente 8 ou 12 jogadores."); return;
     }
     if (confirm("Fechar convocatória e preparar sorteio?")) {
-        onUpdateTournament({ ...activeTournament, rosterClosed: true });
+        const format = count === 12 ? 'sobe_desce_12' : 'classic_8';
+        onUpdateTournament({ ...activeTournament!, rosterClosed: true, format });
         setIsManagingPlayers(false);
     }
   };
@@ -276,15 +278,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const confirmedCount = activeTournament.confirmedPlayerIds.length;
     const isLive = activeTournament.status === 'live';
     const isRosterClosed = activeTournament.rosterClosed;
-    const isQuorumReached = confirmedCount === 8;
-    const progress = Math.min(100, (confirmedCount / 8) * 100);
+    const isQuorumReached = confirmedCount === 8 || confirmedCount === 12;
+    const targetCount = confirmedCount <= 8 ? 8 : 12;
+    const progress = Math.min(100, (confirmedCount / targetCount) * 100);
 
     return (
         <div className="flex flex-col gap-6 p-4 pb-32 animate-fade-in relative">
             {isManagingPlayers && (
                 <div className="fixed inset-0 z-[60] bg-background-dark flex flex-col animate-fade-in p-4">
                     <header className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold">Gerir Jogadores ({confirmedCount}/8)</h2>
+                        <h2 className="text-xl font-bold">Gerir Jogadores ({confirmedCount}/{targetCount})</h2>
                         <button onClick={() => setIsManagingPlayers(false)} className="size-10 rounded-full bg-white/5 flex items-center justify-center"><span className="material-symbols-outlined">close</span></button>
                     </header>
                     
@@ -359,7 +362,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             <div className="flex justify-between items-end">
                                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Convocatória</span>
                                 <span className={`text-[10px] font-black uppercase ${isQuorumReached ? 'text-emerald-400' : 'text-primary'}`}>
-                                    {isQuorumReached ? 'QUORUM ATINGIDO' : `Faltam ${8 - confirmedCount} jogadores`}
+                                    {isQuorumReached ? 'QUORUM ATINGIDO' : `Faltam ${targetCount - confirmedCount} jogadores`}
                                 </span>
                             </div>
                             <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
@@ -370,7 +373,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             </div>
                             <div className="flex justify-between text-[8px] font-black text-gray-500 uppercase">
                                 <span>{confirmedCount} Confirmados</span>
-                                <span>8 Necessários</span>
+                                <span>{targetCount} Necessários</span>
                             </div>
                         </div>
                     )}
