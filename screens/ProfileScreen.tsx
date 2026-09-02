@@ -145,15 +145,21 @@ export const ProfileScreen: React.FC<ProfileProps> = ({ playerId, players, histo
                 const myTeam = inTeam1 ? m.team1 : m.team2;
                 const oppTeam = inTeam1 ? m.team2 : m.team1;
 
+                const getLatestPlayer = (pId: string, fallback: Player) => {
+                    return players.find(p => p.id === pId) || fallback;
+                };
+
                 myTeam.forEach(p => {
                     if (p.id === playerId) return;
-                    if (!partners.has(p.id)) partners.set(p.id, { id: p.id, name: p.nickname || p.name, lastName: p.lastName, image: p.image, backgroundColor: p.backgroundColor, wins: 0, games: 0, matches: [] });
+                    const latestP = getLatestPlayer(p.id, p);
+                    if (!partners.has(p.id)) partners.set(p.id, { id: p.id, name: latestP.nickname || latestP.name, lastName: latestP.lastName, image: latestP.image, backgroundColor: latestP.backgroundColor, wins: 0, games: 0, matches: [] });
                     const pd = partners.get(p.id)!;
                     pd.games++; pd.matches.push(m); if (won) pd.wins++;
                 });
 
                 oppTeam.forEach(p => {
-                    if (!rivals.has(p.id)) rivals.set(p.id, { id: p.id, name: p.nickname || p.name, lastName: p.lastName, image: p.image, backgroundColor: p.backgroundColor, winsAgainst: 0, lossesAgainst: 0, games: 0, matches: [] });
+                    const latestP = getLatestPlayer(p.id, p);
+                    if (!rivals.has(p.id)) rivals.set(p.id, { id: p.id, name: latestP.nickname || latestP.name, lastName: latestP.lastName, image: latestP.image, backgroundColor: latestP.backgroundColor, winsAgainst: 0, lossesAgainst: 0, games: 0, matches: [] });
                     const rd = rivals.get(p.id)!;
                     rd.games++; rd.matches.push(m); if (won) rd.winsAgainst++; else rd.lossesAgainst++;
                 });

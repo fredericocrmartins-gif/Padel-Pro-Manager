@@ -1,5 +1,5 @@
 
-// Version Note: Updated Featured Duos to display latest player avatars.
+// Version Note: Updated Profile Relations to display latest player avatars.
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Screen, Match, Player, Tournament, Location, CloudConfig } from './types';
 import { getSeason, getAllSeasons, calculateRankings } from './utils';
